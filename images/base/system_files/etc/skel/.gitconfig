@@ -1,0 +1,20 @@
+# This is Git's per-user configuration file.
+[user]
+# Please adapt and uncomment the following lines:
+#    name = 
+#    email = coder@devbox.(none)
+
+[init]
+    defaultBranch = main
+[core]
+    editor = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait
+[diff]
+    tool = vscode
+[difftool "vscode"]
+    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait --diff $LOCAL $REMOTE
+[merge]
+    tool = vscode
+[mergetool "vscode"]
+    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait $MERGED
+[difftool]
+    prompt = false

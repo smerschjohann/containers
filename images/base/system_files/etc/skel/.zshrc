@@ -1,0 +1,1 @@
+/usr/share/home/.zshrc

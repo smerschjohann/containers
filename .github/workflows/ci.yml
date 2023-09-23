@@ -45,6 +45,7 @@ jobs:
           platforms: linux/arm64,linux/amd64
 
       - name: Build base
+        id: build 
         uses: docker/build-push-action@v5
         with:
           context: images/base

@@ -1,6 +1,7 @@
 #FROM registry.fedoraproject.org/fedora:38 as base
 # a bit bigger but compatible with toolbox/distrobox
 FROM registry.fedoraproject.org/fedora-toolbox:latest as fedbox
+ARG TARGETARCH
 
 RUN dnf install -y \
         procps-ng btop \
@@ -32,6 +33,7 @@ USER coder
 
 FROM fedbox as fedbox-codeserver
 
+ARG TARGETARCH
 ARG CODE_SERVER_VERSION=4.17.0
 
 USER root

@@ -110,7 +110,7 @@ jobs:
         env:
           manifest: ${{ env.REGISTRY_REPO }}/fedbox:latest
         run: |
-          buildah manifest rm $manifest || true
+          buildah manifest rm $manifest > /dev/null 2> /dev/null || true
           buildah manifest create $manifest
           for arch in "amd64" "arm64"; do
               buildah pull --arch $arch $manifest-$arch  
@@ -122,7 +122,7 @@ jobs:
         env:
           manifest: ${{ env.REGISTRY_REPO }}/fedbox-codeserver:latest
         run: |
-          buildah manifest rm $manifest || true > /dev/null 2> /dev/null
+          buildah manifest rm $manifest > /dev/null 2> /dev/null || true
           buildah manifest create $manifest
           for arch in "arm64" "amd64"; do
               buildah pull --arch $arch $manifest-$arch

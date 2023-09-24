@@ -41,7 +41,7 @@ jobs:
       # build fedbox
       - name: build container fedbox
         env:
-          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox
           BUILDAH_WORKDIR: ./images/fedbox
           BUILDAH_TARGET: fedbox
         run: |
@@ -63,9 +63,9 @@ jobs:
       ## fedbox-codeserver
       - name: build container fedbox
         env:
-          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox-codeserver
           BUILDAH_WORKDIR: ./images/fedbox
-          BUILDAH_TARGET: fedbox
+          BUILDAH_TARGET: fedbox-codeserver
         run: |
           buildah bud \
             --platform ${{ matrix.platform }} \

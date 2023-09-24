@@ -122,10 +122,12 @@ jobs:
         env:
           manifest: ${{ env.REGISTRY_REPO }}/fedbox-codeserver:latest
         run: |
-          buildah manifest rm $manifest || true
+          buildah manifest rm $manifest || true > /dev/null 2> /dev/null
           buildah manifest create $manifest
-          for arch in "amd64" "arm64"; do
-              buildah pull --arch $arch $manifest-$arch  
+          for arch in "arm64" "amd64"; do
+              buildah pull --arch $arch $manifest-$arch
               buildah manifest add $manifest docker://$manifest-$arch
           done
-          buildah push $manifest
+          buildah manifest push --rm --all $manifest docker://$manifest
+      
+      

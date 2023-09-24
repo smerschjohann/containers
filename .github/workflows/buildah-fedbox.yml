@@ -55,7 +55,6 @@ jobs:
           BUILDAH_WORKDIR: ./images/fedbox
           BUILDAH_TARGET: fedbox
         run: |
-          buildah pull ${IMAGE_NAME}:${TAG}-${ARCH} || true
           buildah bud \
             --platform ${{ matrix.platform }} \
             -f $BUILDAH_WORKDIR/Dockerfile \
@@ -107,10 +106,10 @@ jobs:
         run: |
           echo -n $password | buildah login -u $username --password-stdin $registry 
 
-      - name: merge archs fedbox
+      - name: merge & push fedbox
         env:
           manifest: ${{ env.REGISTRY_REPO }}/fedbox:latest
-        run:
+        run: |
           buildah manifest rm $manifest || true
           buildah manifest create $manifest
           for arch in "amd64" "arm64"; do
@@ -119,10 +118,10 @@ jobs:
           done
           buildah push $manifest
 
-      - name: merge archs fedbox-codeserver
+      - name: merge & push fedbox-codeserver
         env:
           manifest: ${{ env.REGISTRY_REPO }}/fedbox-codeserver:latest
-        run:
+        run: |
           buildah manifest rm $manifest || true
           buildah manifest create $manifest
           for arch in "amd64" "arm64"; do

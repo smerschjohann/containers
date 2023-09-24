@@ -39,6 +39,13 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
 
+      - name: Log in to ghcr.io
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+
       # build fedbox
       - name: build container fedbox
         env:

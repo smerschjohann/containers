@@ -27,11 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install qemu dependency
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static
+# required when no dedicated ARM64 runner      
+#      - name: Install qemu dependency
+#        if: ${{ matrix.os == 'ubuntu-latest' }}
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y qemu-user-static
 
       - name: export architecture name (removing os prefix)
         run: |
@@ -91,3 +92,40 @@ jobs:
         run: |
           buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
   
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Log in to ghcr.io
+        env:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+        run: |
+          echo -n $password | buildah login -u $username --password-stdin $registry 
+
+      - name: merge archs fedbox
+        env:
+          manifest: ${{ env.REGISTRY_REPO }}/fedbox:latest
+        run:
+          buildah manifest rm $manifest || true
+          buildah manifest create $manifest
+          for arch in "amd64" "arm64"; do
+              buildah pull --arch $arch $manifest-$arch  
+              buildah manifest add $manifest docker://$manifest-$arch
+          done
+          buildah push $manifest
+
+      - name: merge archs fedbox-codeserver
+        env:
+          manifest: ${{ env.REGISTRY_REPO }}/fedbox-codeserver:latest
+        run:
+          buildah manifest rm $manifest || true
+          buildah manifest create $manifest
+          for arch in "amd64" "arm64"; do
+              buildah pull --arch $arch $manifest-$arch  
+              buildah manifest add $manifest docker://$manifest-$arch
+          done
+          buildah push $manifest

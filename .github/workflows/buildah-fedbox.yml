@@ -1,0 +1,84 @@
+name: Buildah multiarch
+
+permissions:
+  packages: write
+
+on:
+  push:
+  schedule:
+    - cron:  '52 4 * * */2'
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_REPO: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    name: Use seperate runners for each architecture
+    runs-on: "{{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - os: "ubuntu-latest"
+            platform: "linux/amd64"
+          - os: "ARM64"
+            platform: "linux/arm64"
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install qemu dependency
+        if: ${{ matrix.os }} == "ubuntu-latest"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+
+      - name: export architecture name (removing os prefix)
+        run: |
+          echo "ARCH=${PLATFORM#*/}" >>${GITHUB_ENV}
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      # build fedbox
+      - name: build container fedbox
+        env:
+          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          BUILDAH_WORKDIR: $PWD/images/fedbox
+          BUILDAH_TARGET: fedbox
+        run: |
+          buildah bud \
+            --platform ${{ matrix.platform }} \
+            -f $BUILDAH_WORKDIR/Dockerfile \
+            --format docker \
+            --tls-verify=true \
+            -t $IMAGE_NAME:$TAG-$ARCH \
+            --target $BUILDAH_TARGET \
+            --layers \
+            $BUILDAH_WORKDIR
+      - name: push arch image to registry
+        env:
+          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+        run: |
+          buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
+      
+      ## fedbox-codeserver
+      - name: build container fedbox
+        env:
+          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          BUILDAH_WORKDIR: $PWD/images/fedbox
+          BUILDAH_TARGET: fedbox
+        run: |
+          buildah bud \
+            --platform ${{ matrix.platform }} \
+            -f $BUILDAH_WORKDIR/Dockerfile \
+            --format docker \
+            --tls-verify=true \
+            -t $IMAGE_NAME:$TAG-$ARCH \
+            --target $BUILDAH_TARGET \
+            --layers \
+            $BUILDAH_WORKDIR
+      - name: push arch image to registry
+        env:
+          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+        run: |
+          buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
+  

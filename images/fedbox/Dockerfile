@@ -34,7 +34,7 @@ USER coder
 FROM fedbox as fedbox-codeserver
 
 ARG TARGETARCH
-ARG CODE_SERVER_VERSION=4.17.0
+ARG CODE_SERVER_VERSION=4.16.1
 
 USER root
 RUN if [[ "$TARGETARCH" == "arm64" ]]; then \

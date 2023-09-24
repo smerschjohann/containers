@@ -11,6 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   REGISTRY_REPO: ghcr.io/${{ github.repository }}
+  TAG: latest
 
 jobs:
   build:

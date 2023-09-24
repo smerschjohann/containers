@@ -45,7 +45,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
-          echo -n $password | buildah login -u $username $registry --password-stdin
+          echo -n $password | buildah login -u $username --password-stdin $registry 
 
       # build fedbox
       - name: build container fedbox

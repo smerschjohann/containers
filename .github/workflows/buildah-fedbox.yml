@@ -15,7 +15,7 @@ env:
 jobs:
   build:
     name: Use seperate runners for each architecture
-    runs-on: "{{ matrix.os }}"
+    runs-on: "${{ matrix.os }}"
     strategy:
       matrix:
         include:

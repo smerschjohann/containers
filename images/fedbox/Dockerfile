@@ -11,6 +11,7 @@ RUN dnf install -y \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \
         just \
+        podman buildah \
         && \
     dnf clean all && rm -rf /var/cache/yum
 
@@ -29,6 +30,7 @@ RUN if [[ "$TARGETARCH" == "arm64" ]]; then \
 RUN useradd -s /usr/bin/zsh -G docker,wheel -pcoder coder && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
 
+VOLUME [ "/home/coder" ]
 USER coder
 
 FROM fedbox as fedbox-codeserver

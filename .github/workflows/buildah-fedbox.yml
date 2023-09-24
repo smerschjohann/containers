@@ -116,7 +116,7 @@ jobs:
               buildah pull --arch $arch $manifest-$arch  
               buildah manifest add $manifest docker://$manifest-$arch
           done
-          buildah push $manifest
+          buildah manifest push --rm --all $manifest docker://$manifest
 
       - name: merge & push fedbox-codeserver
         env:

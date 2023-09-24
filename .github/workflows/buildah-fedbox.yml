@@ -57,7 +57,7 @@ jobs:
             $BUILDAH_WORKDIR
       - name: push arch image to registry
         env:
-          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox
         run: |
           buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
       
@@ -79,7 +79,7 @@ jobs:
             $BUILDAH_WORKDIR
       - name: push arch image to registry
         env:
-          IMAGE_NAME: ${REGISTRY_REPO}/fedbox
+          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox-codeserver
         run: |
           buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
   

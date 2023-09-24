@@ -55,6 +55,7 @@ jobs:
           BUILDAH_WORKDIR: ./images/fedbox
           BUILDAH_TARGET: fedbox
         run: |
+          buildah pull ${IMAGE_NAME}:${TAG} || true
           buildah bud \
             --platform ${{ matrix.platform }} \
             -f $BUILDAH_WORKDIR/Dockerfile \

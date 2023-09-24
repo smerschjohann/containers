@@ -13,6 +13,7 @@ RUN dnf install -y \
         just \
         podman buildah \
         && \
+    dnf reinstall -y shadow-utils && \
     dnf clean all && rm -rf /var/cache/yum
 
 COPY --chown=0:0 system_files /

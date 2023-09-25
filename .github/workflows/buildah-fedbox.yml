@@ -13,8 +13,7 @@ on:
         description: 'JSON string representing the tasks to be run.'
         required: true
         default: >
-          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
-           {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
+          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"}]
 
 env:
   DEFAULT_TASKS: >
@@ -22,7 +21,6 @@ env:
      {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
   REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
   TAG: 'latest'
-
 
 jobs:
   build:
@@ -35,7 +33,7 @@ jobs:
             platform: "linux/arm64"
     runs-on: "${{ matrix.os }}"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}
@@ -43,9 +41,7 @@ jobs:
           registry: ghcr.io
         run: |
           echo -n $password | buildah login -u $username --password-stdin $registry 
-      - name: Install jq
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: sudo apt-get update && sudo apt-get install -y jq
+          
       - name: Build and push containers
         env:
           TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
@@ -76,9 +72,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}
@@ -101,8 +94,8 @@ jobs:
             buildah manifest create $final_manifest
             
             for arch in "amd64" "arm64"; do
-              buildah pull --arch $arch $image_name-$arch-$TAG
-              buildah manifest add $final_manifest docker://$image_name-$arch-$TAG
+              buildah pull --arch $arch $image_name:$arch-$TAG
+              buildah manifest add $final_manifest docker://$image_name:$arch-$TAG
             done
             
             buildah manifest push --rm --all $final_manifest docker://$final_manifest

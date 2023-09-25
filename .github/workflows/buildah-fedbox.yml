@@ -1,5 +1,8 @@
 name: Build, Merge, and Push
 
+permissions:
+  packages: write
+
 on:
   push:
     branches:

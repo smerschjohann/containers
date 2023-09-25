@@ -11,6 +11,7 @@ RUN dnf install -y \
         bash-completion tmux \
         just \
         podman podman-compose podman-docker buildah \
+        libicu \
         && \
     dnf reinstall -y shadow-utils && \
     dnf clean all && rm -rf /var/cache/yum

@@ -56,7 +56,7 @@ jobs:
             target=$(echo $task | jq -r '.target')
             image_name="$REGISTRY_REPO/$name"
             
-            echo buildah bud \
+            buildah bud \
               --platform $PLATFORM \
               -f $dir/Dockerfile \
               --format docker \
@@ -66,7 +66,7 @@ jobs:
               --layers \
               $dir
             
-            echo buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+            buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
           done
 
   merge:
@@ -92,15 +92,15 @@ jobs:
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')
             image_name="$REGISTRY_REPO/$name"
-            full_manifest="$image_name:$TAG"
+            final_manifest="$image_name:$TAG"
             
-            echo buildah manifest rm $full_manifest > /dev/null 2> /dev/null || true
-            echo buildah manifest create $full_manifest
+            buildah manifest rm $final_manifest > /dev/null 2> /dev/null || true
+            buildah manifest create $final_manifest
             
             for arch in "amd64" "arm64"; do
-              echo buildah pull --arch $arch $full_manifest-$arch-$TAG
-              echo buildah manifest add $full_manifest docker://$full_manifest-$arch-$TAG
+              buildah pull --arch $arch $image_name-$arch-$TAG
+              buildah manifest add $final_manifest docker://$image_name-$arch-$TAG
             done
             
-            echo buildah manifest push --rm --all $full_manifest docker://$full_manifest
+            buildah manifest push --rm --all $final_manifest docker://$final_manifest
           done

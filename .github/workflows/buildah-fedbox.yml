@@ -56,7 +56,7 @@ jobs:
             target=$(echo $task | jq -r '.target')
             image_name="$REGISTRY_REPO/$name"
             
-            buildah bud \
+            echo buildah bud \
               --platform $PLATFORM \
               -f $dir/Dockerfile \
               --format docker \
@@ -66,7 +66,7 @@ jobs:
               --layers \
               $dir
             
-            buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+            echo buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
           done
 
   merge:
@@ -75,7 +75,7 @@ jobs:
     steps:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-        
+
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}
@@ -94,13 +94,13 @@ jobs:
             image_name="$REGISTRY_REPO/$name"
             full_manifest="$image_name:$TAG"
             
-            buildah manifest rm $full_manifest > /dev/null 2> /dev/null || true
-            buildah manifest create $full_manifest
+            echo buildah manifest rm $full_manifest > /dev/null 2> /dev/null || true
+            echo buildah manifest create $full_manifest
             
             for arch in "amd64" "arm64"; do
-              buildah pull --arch $arch $full_manifest-$arch-$TAG
-              buildah manifest add $full_manifest docker://$full_manifest-$arch-$TAG
+              echo buildah pull --arch $arch $full_manifest-$arch-$TAG
+              echo buildah manifest add $full_manifest docker://$full_manifest-$arch-$TAG
             done
             
-            buildah manifest push --rm --all $full_manifest docker://$full_manifest
+            echo buildah manifest push --rm --all $full_manifest docker://$full_manifest
           done

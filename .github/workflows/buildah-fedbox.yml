@@ -1,22 +1,28 @@
-name: Buildah multiarch
-
-permissions:
-  packages: write
+name: Build, Merge, and Push
 
 on:
   push:
-  schedule:
-    - cron:  '52 4 * * */2'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: 'JSON string representing the tasks to be run.'
+        required: true
+        default: >
+          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
+           {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
 
 env:
-  REGISTRY: ghcr.io
-  REGISTRY_REPO: ghcr.io/${{ github.repository }}
-  TAG: latest
+  DEFAULT_TASKS: >
+    [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
+     {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
+  REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
+  TAG: 'latest'
+
 
 jobs:
   build:
-    name: Use seperate runners for each architecture
-    runs-on: "${{ matrix.os }}"
     strategy:
       matrix:
         include:
@@ -24,110 +30,63 @@ jobs:
             platform: "linux/amd64"
           - os: "ARM64"
             platform: "linux/arm64"
+    runs-on: "${{ matrix.os }}"
     steps:
       - uses: actions/checkout@v2
-
-# required when no dedicated ARM64 runner      
-#      - name: Install qemu dependency
-#        if: ${{ matrix.os == 'ubuntu-latest' }}
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install -y qemu-user-static
-
-      - name: export architecture name (removing os prefix)
-        run: |
-          echo "ARCH=${PLATFORM#*/}" >>${GITHUB_ENV}
-        env:
-          PLATFORM: ${{ matrix.platform }}
-
       - name: Log in to ghcr.io
+        run: echo ${{ secrets.GITHUB_TOKEN }} | buildah login --password-stdin ghcr.io
+      - name: Install jq
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Build and push containers
         env:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
+          TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
         run: |
-          echo -n $password | buildah login -u $username --password-stdin $registry 
-
-      # build fedbox
-      - name: build container fedbox
-        env:
-          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox
-          BUILDAH_WORKDIR: ./images/fedbox
-          BUILDAH_TARGET: fedbox
-        run: |
-          buildah bud \
-            --platform ${{ matrix.platform }} \
-            -f $BUILDAH_WORKDIR/Dockerfile \
-            --format docker \
-            --tls-verify=true \
-            -t $IMAGE_NAME:$TAG-$ARCH \
-            --target $BUILDAH_TARGET \
-            --layers \
-            $BUILDAH_WORKDIR
-      - name: push arch image to registry
-        env:
-          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox
-        run: |
-          buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
-      
-      ## fedbox-codeserver
-      - name: build container fedbox
-        env:
-          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox-codeserver
-          BUILDAH_WORKDIR: ./images/fedbox
-          BUILDAH_TARGET: fedbox-codeserver
-        run: |
-          buildah bud \
-            --platform ${{ matrix.platform }} \
-            -f $BUILDAH_WORKDIR/Dockerfile \
-            --format docker \
-            --tls-verify=true \
-            -t $IMAGE_NAME:$TAG-$ARCH \
-            --target $BUILDAH_TARGET \
-            --layers \
-            $BUILDAH_WORKDIR
-      - name: push arch image to registry
-        env:
-          IMAGE_NAME: ${{ env.REGISTRY_REPO }}/fedbox-codeserver
-        run: |
-          buildah push $IMAGE_NAME:$TAG-$ARCH docker://$IMAGE_NAME:$TAG-$ARCH
-  
+          tasks=$(echo "$TASKS" | jq -c '.[]')
+          for task in $tasks; do
+            name=$(echo $task | jq -r '.name')
+            dir=$(echo $task | jq -r '.dir')
+            target=$(echo $task | jq -r '.target')
+            image_name="$REGISTRY_REPO/$name"
+            
+            buildah bud \
+              --platform $PLATFORM \
+              -f $dir/Dockerfile \
+              --format docker \
+              --tls-verify=true \
+              -t $image_name:$ARCH-$TAG \
+              --target $target \
+              --layers \
+              $dir
+            
+            buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+          done
 
   merge:
+    needs: build
     runs-on: ubuntu-latest
-    needs:
-      - build
     steps:
-      - name: Log in to ghcr.io
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Merge & push manifests
         env:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
+          TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
         run: |
-          echo -n $password | buildah login -u $username --password-stdin $registry 
-
-      - name: merge & push fedbox
-        env:
-          manifest: ${{ env.REGISTRY_REPO }}/fedbox:latest
-        run: |
-          buildah manifest rm $manifest > /dev/null 2> /dev/null || true
-          buildah manifest create $manifest
-          for arch in "amd64" "arm64"; do
-              buildah pull --arch $arch $manifest-$arch  
-              buildah manifest add $manifest docker://$manifest-$arch
+          tasks=$(echo "$TASKS" | jq -c '.[]')
+          for task in $tasks; do
+            name=$(echo $task | jq -r '.name')
+            image_name="$REGISTRY_REPO/$name"
+            full_manifest="$image_name:$TAG"
+            
+            buildah manifest rm $full_manifest > /dev/null 2> /dev/null || true
+            buildah manifest create $full_manifest
+            
+            for arch in "amd64" "arm64"; do
+              buildah pull --arch $arch $full_manifest-$arch-$TAG
+              buildah manifest add $full_manifest docker://$full_manifest-$arch-$TAG
+            done
+            
+            buildah manifest push --rm --all $full_manifest docker://$full_manifest
           done
-          buildah manifest push --rm --all $manifest docker://$manifest
-
-      - name: merge & push fedbox-codeserver
-        env:
-          manifest: ${{ env.REGISTRY_REPO }}/fedbox-codeserver:latest
-        run: |
-          buildah manifest rm $manifest > /dev/null 2> /dev/null || true
-          buildah manifest create $manifest
-          for arch in "arm64" "amd64"; do
-              buildah pull --arch $arch $manifest-$arch
-              buildah manifest add $manifest docker://$manifest-$arch
-          done
-          buildah manifest push --rm --all $manifest docker://$manifest
-      
-      

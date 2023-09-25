@@ -34,7 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Log in to ghcr.io
-        run: echo ${{ secrets.GITHUB_TOKEN }} | buildah login --password-stdin ghcr.io
+        env:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+        run: |
+          echo -n $password | buildah login -u $username --password-stdin $registry 
       - name: Install jq
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -70,6 +75,15 @@ jobs:
     steps:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
+        
+      - name: Log in to ghcr.io
+        env:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+        run: |
+          echo -n $password | buildah login -u $username --password-stdin $registry 
+
       - name: Merge & push manifests
         env:
           TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}

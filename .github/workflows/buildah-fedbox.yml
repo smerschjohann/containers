@@ -32,7 +32,7 @@ jobs:
             platform: "linux/arm64"
     runs-on: "${{ matrix.os }}"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}

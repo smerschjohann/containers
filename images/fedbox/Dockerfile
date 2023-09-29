@@ -35,7 +35,7 @@ USER coder
 FROM fedbox as fedbox-codeserver
 
 ARG TARGETARCH
-ARG CODE_SERVER_VERSION=4.16.1
+ARG CODE_SERVER_VERSION=4.17.1-rc.1
 
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-${TARGETARCH}.rpm && \

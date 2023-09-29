@@ -4,6 +4,9 @@ permissions:
   packages: write
 
 on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '17 4 * * */2'
   push:
     branches:
       - main
@@ -12,8 +15,9 @@ on:
       tasks:
         description: 'JSON string representing the tasks to be run.'
         required: true
-        default: >
-          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"}]
+        default:  >
+          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
+          {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
 
 env:
   DEFAULT_TASKS: >

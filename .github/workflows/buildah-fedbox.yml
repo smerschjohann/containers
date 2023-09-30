@@ -57,7 +57,7 @@ jobs:
                           quay.io/buildah/stable:latest /bin/bash"
           fi
 
-          $runcmd << EOF
+          $runcmd << 'EOF'
             echo -n $password | buildah login -u $username --password-stdin $registry 
             tasks=$(echo "$TASKS" | jq -c '.[]')
             for task in $tasks; do
@@ -80,7 +80,7 @@ jobs:
               
               buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
             done
-          EOF
+          'EOF'
 
   merge:
     needs: build

@@ -47,6 +47,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
+          shopt -s expand_aliases
           alias runcmd=/bin/bash
           if [[ $PLATFORM == 'linux/amd64' ]]; then
             mkdir -p ../images

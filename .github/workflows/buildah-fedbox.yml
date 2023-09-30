@@ -54,10 +54,12 @@ jobs:
                           -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
                           --net=host --device /dev/fuse:rw \
                           -v ../images:/var/lib/containers:Z \
+                          -v $PWD/images:/root/images:ro \
                           ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
           fi
 
           $runcmd << 'EOF'
+            cd /root
             echo -n $password | buildah login -u $username --password-stdin $registry 
             tasks=$(echo "$TASKS" | jq -c '.[]')
             for task in $tasks; do

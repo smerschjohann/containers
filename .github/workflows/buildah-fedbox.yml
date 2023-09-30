@@ -36,8 +36,6 @@ jobs:
           - os: "ARM64"
             platform: "linux/arm64"
     runs-on: "${{ matrix.os }}"
-    container:
-      image: ghcr.io/smerschjohann/containers/fedbox:latest
     steps:
       - uses: actions/checkout@v4
       - name: Build and push containers

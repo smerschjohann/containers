@@ -52,7 +52,7 @@ jobs:
             mkdir -p ../images
             runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=TASKS -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
                           -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-                          --net=host -v /proc:/proc --device /dev/fuse:rw \
+                          --net=host --priviledged --device /dev/fuse:rw \
                           -v ../images:/var/lib/containers:Z \
                           -v $PWD/images:/root/images:ro \
                           ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
@@ -82,7 +82,7 @@ jobs:
               
               buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
             done
-          'EOF'
+          EOF
 
   merge:
     needs: build

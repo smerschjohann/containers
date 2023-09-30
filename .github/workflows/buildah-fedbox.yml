@@ -47,11 +47,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
-          shopt -s expand_aliases
-          alias runcmd=/bin/bash
+          runcmd=/bin/bash
           if [[ $PLATFORM == 'linux/amd64' ]]; then
             mkdir -p ../images
-            alias runcmd="podman run -e=TASKS -e=PLATFORM -e=ARCH -e=username -epassword -eregistry -i \
+            runcmd="podman run -e=TASKS -e=PLATFORM -e=ARCH -e=username -epassword -eregistry -i \
                           -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
                           --net=host --device /dev/fuse:rw \
                           -v ../images:/var/lib/containers:Z \

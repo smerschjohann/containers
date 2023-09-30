@@ -54,7 +54,7 @@ jobs:
                           -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
                           --net=host --device /dev/fuse:rw \
                           -v ../images:/var/lib/containers:Z \
-                          quay.io/buildah/stable:latest /bin/bash"
+                          ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
           fi
 
           $runcmd << 'EOF'

@@ -33,48 +33,56 @@ jobs:
         include:
           - os: "ubuntu-latest"
             platform: "linux/amd64"
-#          - os: "ARM64"
-#            platform: "linux/arm64"
+          - os: "ARM64"
+            platform: "linux/arm64"
     runs-on: "${{ matrix.os }}"
     container:
       image: ghcr.io/smerschjohann/containers/fedbox:latest
     steps:
       - uses: actions/checkout@v4
-      - name: Log in to ghcr.io
-        env:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
-        run: |
-          echo -n $password | buildah login -u $username --password-stdin $registry 
-          
       - name: Build and push containers
         env:
           TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
         run: |
-          tasks=$(echo "$TASKS" | jq -c '.[]')
-          for task in $tasks; do
-            name=$(echo $task | jq -r '.name')
-            dir=$(echo $task | jq -r '.dir')
-            target=$(echo $task | jq -r '.target')
-            image_name="$REGISTRY_REPO/$name"
-            
-            buildah bud \
-              --platform $PLATFORM \
-              -f $dir/Dockerfile \
-              --format docker \
-              --tls-verify=true \
-              -t $image_name:$ARCH-$TAG \
-              --target $target \
-              --layers \
-              --cache-from $REGISTRY_REPO/cache \
-              --cache-to $REGISTRY_REPO/cache \
-              $dir
-            
-            buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
-          done
+          alias runcmd=/bin/bash
+          if [[ $PLATFORM == 'linux/amd64' ]]; then
+            mkdir -p ../images
+            alias runcmd="podman run -e=TASKS -e=PLATFORM -e=ARCH -e=username -epassword -eregistry -i \
+                          -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+                          --net=host --device /dev/fuse:rw \
+                          -v ../images:/var/lib/containers:Z \
+                          quay.io/buildah/stable:latest /bin/bash"
+          fi
+
+          $runcmd << EOF
+            echo -n $password | buildah login -u $username --password-stdin $registry 
+            tasks=$(echo "$TASKS" | jq -c '.[]')
+            for task in $tasks; do
+              name=$(echo $task | jq -r '.name')
+              dir=$(echo $task | jq -r '.dir')
+              target=$(echo $task | jq -r '.target')
+              image_name="$REGISTRY_REPO/$name"
+              
+              buildah bud \
+                --platform $PLATFORM \
+                -f $dir/Dockerfile \
+                --format docker \
+                --tls-verify=true \
+                -t $image_name:$ARCH-$TAG \
+                --target $target \
+                --layers \
+                --cache-from $REGISTRY_REPO/cache \
+                --cache-to $REGISTRY_REPO/cache \
+                $dir
+              
+              buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+            done
+          EOF
 
   merge:
     needs: build

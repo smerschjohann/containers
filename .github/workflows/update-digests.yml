@@ -1,9 +1,6 @@
 name: Update digests and trigger build if required
 
 on:
-  push:
-    branches:
-      - main # this won't be triggered by the push below
   schedule:
     - cron: "5 4 * * *"
 

@@ -1,0 +1,12 @@
+[
+    {
+        "name": "fedbox",
+        "dir": "./images/fedbox",
+        "target": "fedbox"
+    },
+    {
+        "name": "fedbox-codeserver",
+        "dir": "./images/fedbox",
+        "target": "fedbox-codeserver"
+    }
+]

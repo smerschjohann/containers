@@ -1,2 +1,2 @@
-digest_amd64=sha256:3a1fa4954928d6b8244b36c5de3b6f30d7e6b55227f4f329bba1125a093ae4f9
-digest_arm64=sha256:f9be932e8fb3dc3c1c1bce22e441a504de1371b3cbf43db07489cd46750bb05a
+digest_amd64=TEST
+digest_arm64=TEST

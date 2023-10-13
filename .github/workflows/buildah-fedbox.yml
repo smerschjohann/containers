@@ -4,25 +4,15 @@ permissions:
   packages: write
 
 on:
+  workflow_call:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron:  '17 4 * * */2'
+    - cron:  '17 5 * * *'
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      tasks:
-        description: 'JSON string representing the tasks to be run.'
-        required: true
-        default:  >
-          [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
-          {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
-
 env:
-  DEFAULT_TASKS: >
-    [{"name": "fedbox", "dir": "./images/fedbox", "target": "fedbox"},
-     {"name": "fedbox-codeserver", "dir": "./images/fedbox", "target": "fedbox-codeserver"}]
   REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
   TAG: 'latest'
 
@@ -40,7 +30,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and push containers
         env:
-          TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           username: ${{ github.actor }}
@@ -50,7 +39,7 @@ jobs:
           runcmd=/bin/bash
           if [[ $PLATFORM == 'linux/amd64' ]]; then
             mkdir -p ../images
-            runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=TASKS -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
+            runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
                           -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
                           --net=host --privileged --device /dev/fuse:rw \
                           -v ../images:/var/lib/containers:Z \
@@ -61,7 +50,7 @@ jobs:
           $runcmd << 'EOF'
             cd /root
             echo -n $password | buildah login -u $username --password-stdin $registry 
-            tasks=$(echo "$TASKS" | jq -c '.[]')
+            tasks=$(jq -c '.[]' images/tasks.json)
             for task in $tasks; do
               name=$(echo $task | jq -r '.name')
               dir=$(echo $task | jq -r '.dir')
@@ -107,7 +96,7 @@ jobs:
         env:
           TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
         run: |
-          tasks=$(echo "$TASKS" | jq -c '.[]')
+          tasks=$(jq -c '.[]' images/tasks.json)
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')
             image_name="$REGISTRY_REPO/$name"

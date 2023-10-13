@@ -1,4 +1,5 @@
-FROM registry.fedoraproject.org/fedora:38 as fedbox
+ARG TAGORDIGEST=:38
+FROM registry.fedoraproject.org/fedora${TAGORDIGEST} as fedbox
 # a bit bigger but compatible with toolbox/distrobox
 #FROM registry.fedoraproject.org/fedora-toolbox:latest as fedbox
 ARG TARGETARCH

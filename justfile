@@ -1,24 +1,51 @@
 set export
 TAG := "dev"
 
-build-fedbox platform=arch():
+update-digests:
+    podman manifest inspect registry.fedoraproject.org/fedora:38 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
+
+build-fedbox $platform=arch():
+    #!/bin/bash
+    if [[ $platform == 'aarch64' ]]; then
+      platform='arm64'
+    fi
+
+    source images/fedbox/builddigests
+
+    var_name="digest_$platform"
+    echo $var_name
+    digest=${!var_name}
+
     buildah bud \
-        --platform linux/{{platform}} \
+        --build-arg TAGORDIGEST="@$digest" \
+        --platform linux/$platform \
         -f $PWD/images/fedbox/Dockerfile \
         --format docker \
         --tls-verify=true \
-        -t fedbox:$TAG-{{platform}} \
+        -t fedbox:$TAG-$platform \
         --target fedbox \
         --layers \
         $PWD/images/fedbox
 
 build-fedbox-codeserver platform=arch():
+    #!/bin/bash
+    if [[ $platform == 'aarch64' ]]; then
+      platform='arm64'
+    fi
+
+    source images/fedbox/builddigests
+
+    var_name="digest_$platform"
+    echo $var_name
+    digest=${!var_name}
+
     buildah bud \
+        --build-arg TAGORDIGEST="@$digest" \
         --platform linux/$platform \
         -f $PWD/images/fedbox/Dockerfile \
         --format docker \
         --tls-verify=true \
-        -t fedbox-codeserver:$TAG-$platform \
+        -t fedbox:$TAG-$platform \
         --target fedbox-codeserver \
         --layers \
         $PWD/images/fedbox

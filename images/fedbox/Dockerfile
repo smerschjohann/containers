@@ -5,7 +5,7 @@ FROM registry.fedoraproject.org/fedora${TAGORDIGEST} as fedbox
 ARG TARGETARCH
 
 RUN dnf install -y \
-        procps-ng btop \
+        procps-ng btop git \
         jq vim quilt fzf zsh \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \

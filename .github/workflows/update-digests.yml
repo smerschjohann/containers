@@ -1,6 +1,7 @@
 name: Update digests and trigger build if required
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "5 4 * * *"
 
@@ -21,7 +22,7 @@ jobs:
     - name: update digests
       id: update
       run: |
-        podman manifest inspect registry.fedoraproject.org/fedora:38 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
+        podman manifest inspect registry.fedoraproject.org/fedora:39 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
 
         git diff --exit-code images/fedbox/builddigests && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
 

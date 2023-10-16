@@ -34,3 +34,8 @@ jobs:
         git add images/fedbox/builddigests
         git commit -m "update digests to latest version"
         git push
+
+  build:
+    needs: update_file
+    if: needs.update_file.outputs.changed == 'true'
+    uses: ./.github/workflows/buildah-fedbox.yml

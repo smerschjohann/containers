@@ -5,13 +5,10 @@ permissions:
 
 on:
   workflow_call:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    - cron:  '17 5 * * *'
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 env:
   REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
   TAG: 'latest'
@@ -28,6 +25,8 @@ jobs:
     runs-on: "${{ matrix.os }}"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: "main"
       - name: Build and push containers
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -85,6 +84,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: "main"
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}

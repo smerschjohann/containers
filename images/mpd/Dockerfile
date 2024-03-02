@@ -1,5 +1,5 @@
 ARG TAGORDIGEST=:latest
-FROM docker.io/alpine${TAGORDIGEST}
+FROM docker.io/alpine${TAGORDIGEST} AS mpd
 
 RUN apk add --no-cache mpd mpc lame
 

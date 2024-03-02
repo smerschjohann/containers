@@ -8,5 +8,10 @@
         "name": "fedbox-codeserver",
         "dir": "./images/fedbox",
         "target": "fedbox-codeserver"
+    },
+    {
+        "name": "mpd",
+        "dir": "./images/mpd",
+        "target": "mpd"
     }
 ]

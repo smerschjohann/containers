@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - mpd
 env:
   REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
   TAG: 'latest'
@@ -26,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "main"
+          ref: "mpd"
       - name: Build and push containers
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -85,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "main"
+          ref: "mpd"
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}

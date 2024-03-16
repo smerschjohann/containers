@@ -27,7 +27,7 @@ jobs:
 
         changed=false
         
-        podman pull registry.fedoraproject.org/fedora:3
+        podman pull registry.fedoraproject.org/fedora:39
         podman manifest inspect registry.fedoraproject.org/fedora:39 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
         git diff --exit-code images/fedbox/builddigests
         if [[ $? -ne 0 ]]; then

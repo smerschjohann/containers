@@ -26,7 +26,8 @@ jobs:
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
         changed=false
-
+        
+        podman pull registry.fedoraproject.org/fedora:3
         podman manifest inspect registry.fedoraproject.org/fedora:39 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
         git diff --exit-code images/fedbox/builddigests
         if [[ $? -ne 0 ]]; then
@@ -37,6 +38,7 @@ jobs:
           changed=true
         fi
 
+        podman pull docker.io/alpine:latest
         podman manifest inspect docker.io/alpine:latest | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/mpd/builddigests
         git diff --exit-code images/mpd/builddigests
         if [[ $? -ne 0 ]]; then

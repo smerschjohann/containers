@@ -1,5 +1,5 @@
 ARG TAGORDIGEST=:39
-FROM registry.fedoraproject.org/fedora${TAGORDIGEST} as fedbox
+FROM docker.io/library/fedora${TAGORDIGEST} as fedbox
 # a bit bigger but compatible with toolbox/distrobox
 #FROM registry.fedoraproject.org/fedora-toolbox:latest as fedbox
 ARG TARGETARCH
@@ -40,7 +40,7 @@ USER coder
 FROM fedbox as fedbox-codeserver
 
 ARG TARGETARCH
-ARG CODE_SERVER_VERSION=4.20.0
+ARG CODE_SERVER_VERSION=4.22.1
 
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-${TARGETARCH}.rpm && \

@@ -1,5 +1,10 @@
 [
     {
+        "name": "mpd-skill",
+        "dir": "./images/mpd-skill",
+        "target": "skill"
+    },
+    {
         "name": "mpd",
         "dir": "./images/mpd",
         "target": "mpd"

@@ -55,15 +55,8 @@ jobs:
               dir=$(echo $task | jq -r '.dir')
               target=$(echo $task | jq -r '.target')
               image_name="$REGISTRY_REPO/$name"
-
-              source $dir/builddigests
-
-              var_name="digest_$ARCH"
-              echo $var_name
-              digest=${!var_name}
               
               buildah bud \
-                --build-arg TAGORDIGEST="@$digest" \
                 --platform $PLATFORM \
                 -f $dir/Dockerfile \
                 --format docker \

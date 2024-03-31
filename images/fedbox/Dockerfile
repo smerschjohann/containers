@@ -40,10 +40,12 @@ USER coder
 FROM fedbox as fedbox-codeserver
 
 ARG TARGETARCH
-ARG CODE_SERVER_VERSION=4.22.1
+
+# renovate: datasource=github-releases depName=coder/code-server
+ARG CODE_SERVER_VERSION=v4.22.0
 
 USER root
-RUN curl -LO https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-${TARGETARCH}.rpm && \
+RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \
     dnf install -y code-server*.rpm && rm code-server*.rpm && \
     dnf clean all && \
   	rm -rf /var/cache/yum

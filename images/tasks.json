@@ -1,5 +1,10 @@
 [
     {
+        "name": "bw-cli",
+        "dir": "./images/bw-cli",
+        "target": "app"
+    },
+    {
         "name": "mpd-skill",
         "dir": "./images/mpd-skill",
         "target": "skill"

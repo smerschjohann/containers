@@ -63,9 +63,6 @@ jobs:
                 --tls-verify=true \
                 -t $image_name:$ARCH-$TAG \
                 --target $target \
-                --layers \
-                --cache-from $REGISTRY_REPO/cache \
-                --cache-to $REGISTRY_REPO/cache \
                 $dir
               
               buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG

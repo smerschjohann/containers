@@ -19,11 +19,12 @@ RUN dnf install -y \
 
 COPY --chown=0:0 system_files /
 
-RUN curl -Lo /usr/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
+RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
     # manually install go version as Fedora 39 still has 1.21.1 with the CVE unfixed https://github.com/golang/go/issues/63427
     curl -sL https://go.dev/dl/go1.21.3.linux-${TARGETARCH}.tar.gz | tar zxvf - -C /usr/local && \
     chmod a+x /usr/local/go/bin/* && \
     ln -s /usr/local/go/bin/* /usr/local/bin/ && \
+    chmod a+x /usr/local/bin/* && \
     TMPDIR=$(mktemp -d) && \
     cd $TMPDIR; curl -sL "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${TARGETARCH}.tar.gz" | tar zxvf - && HOME=/etc/skel ./krew-linux_${TARGETARCH} install krew ctx ns && \
     rm -rf $TMPDIR

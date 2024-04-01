@@ -54,8 +54,14 @@ jobs:
               name=$(echo $task | jq -r '.name')
               dir=$(echo $task | jq -r '.dir')
               target=$(echo $task | jq -r '.target')
+              nocache=$(echo $task | jq -c '.nocache')
               image_name="$REGISTRY_REPO/$name"
               
+              cacheparams=""
+              if [[ $nocache != true ]]; then
+               cacheparams="--layers --cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
+              fi
+
               buildah bud \
                 --platform $PLATFORM \
                 -f $dir/Dockerfile \
@@ -63,6 +69,7 @@ jobs:
                 --tls-verify=true \
                 -t $image_name:$ARCH-$TAG \
                 --target $target \
+                $cacheparams \
                 $dir
               
               buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG

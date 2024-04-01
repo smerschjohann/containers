@@ -2,7 +2,8 @@
     {
         "name": "bw-cli",
         "dir": "./images/bw-cli",
-        "target": "app"
+        "target": "app",
+        "nocache": true
     },
     {
         "name": "mpd-skill",

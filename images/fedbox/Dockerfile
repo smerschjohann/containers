@@ -35,10 +35,11 @@ RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s http
     curl -sL "https://github.com/helmfile/helmfile/releases/download/${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     rm -f /usr/local/bin/LICENSE /usr/local/bin/README* && chmod a+x /usr/local/bin/* && \
+    mkdir -p /opt/helm-plugins && \
+    helm plugin install https://github.com/databus23/helm-diff && \
     TMPDIR=$(mktemp -d) && \
     cd $TMPDIR; curl -sL "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${TARGETARCH}.tar.gz" | tar zxvf - && HOME=/etc/skel ./krew-linux_${TARGETARCH} install krew ctx ns && \
-    rm -rf $TMPDIR && mkdir -p /opt/helm-plugins && \
-    helm plugin install https://github.com/databus23/helm-diff
+    rm -rf $TMPDIR
 
 RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd

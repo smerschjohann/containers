@@ -33,7 +33,7 @@ ARG VALS_VERSION=v0.36.0
 RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
     curl -sL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin --strip-components=1 && \
     curl -sL "https://github.com/helmfile/helmfile/releases/download/${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
-    curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/helmfile_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
+    curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     rm -f /usr/local/bin/LICENSE /usr/local/bin/README* && chmod a+x /usr/local/bin/* && \
     TMPDIR=$(mktemp -d) && \
     cd $TMPDIR; curl -sL "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${TARGETARCH}.tar.gz" | tar zxvf - && HOME=/etc/skel ./krew-linux_${TARGETARCH} install krew ctx ns && \

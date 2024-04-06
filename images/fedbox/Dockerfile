@@ -12,7 +12,7 @@ RUN dnf install -y \
         bash-completion tmux \
         just nodejs sqlite3 \
         podman podman-compose podman-docker buildah \
-        libicu \
+        libicu make dnf5 \
         && \
     dnf reinstall -y shadow-utils && \
     dnf clean all && rm -rf /var/cache/yum
@@ -28,9 +28,12 @@ ARG HELM_VERSION=v3.14.3
 ARG HELMFILE_VERSION=v0.163.1
 
 # renovate: datasource=github-releases depName=helmfile/vals
-ARG VALS_VERSION=v0.36.0
+ARG VALS_VERSION=v0.37.0
 
-RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+ARG KUBERNETES_VERSION=v1.29.3
+
+RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     curl -sL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin --strip-components=1 && \
     curl -sL "https://github.com/helmfile/helmfile/releases/download/${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \

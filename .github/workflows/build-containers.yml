@@ -57,7 +57,7 @@ jobs:
               nocache=$(echo $task | jq -c '.nocache')
               image_name="$REGISTRY_REPO/$name"
               
-              if git diff --quiet --exit-code HEAD^..HEAD $dir; then
+              if git diff --quiet --exit-code HEAD^ HEAD $dir; then
                 echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
                 continue
               fi

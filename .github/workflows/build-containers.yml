@@ -104,6 +104,7 @@ jobs:
           tasks=$(jq -c '.[]' images/tasks.json)
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')
+            dir=$(echo $task | jq -r '.dir')
             image_name="$REGISTRY_REPO/$name"
             final_manifest="$image_name:$TAG"
 

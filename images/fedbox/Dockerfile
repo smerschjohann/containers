@@ -33,10 +33,14 @@ ARG VALS_VERSION=v0.37.0
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBERNETES_VERSION=v1.29.3
 
+# renovate: datasource=github-releases depName=gokcehan/lf
+ARG LF_VERSION=r32
+
 RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     curl -sL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin --strip-components=1 && \
     curl -sL "https://github.com/helmfile/helmfile/releases/download/${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
+    curl -sL "https://github.com/gokcehan/lf/releases/download/${LF_VERSION}/lf-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     rm -f /usr/local/bin/LICENSE /usr/local/bin/README* && chmod a+x /usr/local/bin/* && \
     mkdir -p /opt/helm-plugins && \
     helm plugin install https://github.com/databus23/helm-diff && \

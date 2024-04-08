@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "main"
+          fetch-depth: 2
       - name: Build and push containers
         env:
           PLATFORM: ${{ matrix.platform }}
@@ -57,6 +57,12 @@ jobs:
               nocache=$(echo $task | jq -c '.nocache')
               image_name="$REGISTRY_REPO/$name"
               
+              if git diff --quiet --exit-code HEAD^..HEAD $dir; then
+                echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
+                continue
+              fi
+
+
               cacheparams=""
               if [[ $nocache != true ]]; then
                cacheparams="--layers --cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
@@ -82,7 +88,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: "main"
+          fetch-depth: 2
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}
@@ -100,6 +106,11 @@ jobs:
             name=$(echo $task | jq -r '.name')
             image_name="$REGISTRY_REPO/$name"
             final_manifest="$image_name:$TAG"
+
+            if git diff --quiet --exit-code HEAD^..HEAD $dir; then
+              echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
+              continue
+            fi
             
             buildah manifest rm $final_manifest > /dev/null 2> /dev/null || true
             buildah manifest create $final_manifest

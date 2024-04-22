@@ -1,4 +1,4 @@
-ARG TAGORDIGEST=:39@sha256:61864fd19bbd64d620f338eb11dae9e8759bf7fa97302ac6c43865c48dccd679
+ARG TAGORDIGEST=:39@sha256:0b5b00b51828c47e65b8b75fd0ca003f067c87e0aeb5b5fef51678bd51986b1a
 FROM docker.io/library/fedora${TAGORDIGEST} as fedbox
 # a bit bigger but compatible with toolbox/distrobox
 #FROM registry.fedoraproject.org/fedora-toolbox:latest as fedbox

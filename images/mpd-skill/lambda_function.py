@@ -108,9 +108,11 @@ class LaunchRequestOrPlayAudioHandler(AbstractRequestHandler):
            handler_input.response_builder.speak("Die Wiedergabeliste ist leer.").set_should_end_session(True)
            return handler_input.response_builder.response
         else:
-            speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-            logger.info("speak: %s", speech)
-
+            try:
+                speech = f"Spiele das Lied {song['title']} von {song['artist']}"
+                logger.info("speak: %s", speech)
+            except:
+                pass
             return util.play(url=RADIO_URL,
                             offset=0,
                             text="ok",
@@ -143,7 +145,7 @@ class HelpIntentHandler(AbstractRequestHandler):
 
 class UnhandledIntentHandler(AbstractRequestHandler):
     """Handler for fallback intent, for unmatched utterances.
-
+mpd-skill-deployment-84d9556544-czgq8
     2018-July-12: AMAZON.FallbackIntent is currently available in all
     English locales. This handler will not be triggered except in that
     locale, so it can be safely deployed for any locale. More info
@@ -185,8 +187,11 @@ class NextOrPreviousIntentHandler(AbstractRequestHandler):
             time.sleep(0.1)
 
             song = client.currentsong()
-            speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-            logger.info("speak: %s", speech)
+            try:
+                speech = f"Spiele das Lied {song['title']} von {song['artist']}"
+                logger.info("speak: %s", speech)
+            except:
+                pass
 
             handler_input.response_builder.speak(speech=speech).set_should_end_session(True)
         
@@ -231,8 +236,11 @@ class ResumeIntentHandler(AbstractRequestHandler):
 
         with connection():
             song = client.currentsong()
-            speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-            logger.info("speak: %s", speech)
+            try:
+                speech = f"Spiele das Lied {song['title']} von {song['artist']}"
+                logger.info("speak: %s", speech)
+            except:
+                pass
         return util.play(
             url=RADIO_URL, offset=0,
             text=speech, card_data=None,

@@ -1,4 +1,4 @@
-FROM docker.io/library/fedora:40@sha256:4e007f288dce23966216be81ef62ba05d139b9338f327c1d1c73b7167dd47312 as fedbox
+FROM docker.io/library/fedora:41@sha256:6fa9d7d37aa9c2fe396029fd9c4f878fdff9f6ecc044a44f5e2f6c3c63ab823d as fedbox
 ARG TARGETARCH
 
 RUN dnf install -y \

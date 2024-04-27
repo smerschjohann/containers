@@ -1,7 +1,4 @@
-ARG TAGORDIGEST=:39@sha256:61864fd19bbd64d620f338eb11dae9e8759bf7fa97302ac6c43865c48dccd679
-FROM docker.io/library/fedora${TAGORDIGEST} as fedbox
-# a bit bigger but compatible with toolbox/distrobox
-#FROM registry.fedoraproject.org/fedora-toolbox:latest as fedbox
+FROM docker.io/library/fedora:40@sha256:4e007f288dce23966216be81ef62ba05d139b9338f327c1d1c73b7167dd47312 as fedbox
 ARG TARGETARCH
 
 RUN dnf install -y \

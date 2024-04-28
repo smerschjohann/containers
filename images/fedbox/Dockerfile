@@ -7,7 +7,7 @@ RUN dnf install -y \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \
-        just nodejs sqlite3 \
+        just nodejs sqlite3 golang \
         podman podman-compose podman-docker buildah \
         libicu make dnf5 \
         && \

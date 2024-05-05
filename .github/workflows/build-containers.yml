@@ -105,8 +105,9 @@ jobs:
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')
             dir=$(echo $task | jq -r '.dir')
+            tag=$(echo $task | jq -r '.tag // empty')
             image_name="$REGISTRY_REPO/$name"
-            final_manifest="$image_name:$TAG"
+            final_manifest="$image_name:${tag:-$TAG}"
 
             if git diff --quiet --exit-code HEAD^..HEAD $dir; then
               echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"

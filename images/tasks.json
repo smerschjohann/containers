@@ -28,6 +28,7 @@
     {
         "name": "traefik",
         "dir": "./images/traefik",
-        "target": "traefik"
+        "target": "traefik",
+        "tag": "v3.0.0"
     }
 ]

@@ -24,5 +24,10 @@
         "name": "fedbox-codeserver",
         "dir": "./images/fedbox",
         "target": "fedbox-codeserver"
+    },
+    {
+        "name": "traefik",
+        "dir": "./images/traefik",
+        "target": "traefik"
     }
 ]

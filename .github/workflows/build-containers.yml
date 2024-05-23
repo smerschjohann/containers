@@ -105,8 +105,13 @@ jobs:
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')
             dir=$(echo $task | jq -r '.dir')
+            autoTag=$(echo $task | jq -r '.autoTag // empty')
             tag=$(echo $task | jq -r '.tag // empty')
             image_name="$REGISTRY_REPO/$name"
+
+            if [ "$autoTag" = "true" ]; then
+              tag=$(grep -oP '(?<=:).+?(?=@)' $dir/Dockerfile)
+            fi
             final_manifest="$image_name:${tag:-$TAG}"
 
             if git diff --quiet --exit-code HEAD^..HEAD $dir; then

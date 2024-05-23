@@ -29,11 +29,12 @@
         "name": "traefik",
         "dir": "./images/traefik",
         "target": "traefik",
-        "tag": "v3.0.0"
+        "autoTag": true
     },
     {
         "name": "tor",
         "dir": "./images/tor",
-        "target": "tor"
+        "target": "tor",
+        "autoTag": true
     }
 ]

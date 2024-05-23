@@ -1,4 +1,4 @@
-FROM alpine:3.20.0@sha256:8768f0ca8ce33ec230c116364fbaebc1e18aaabbbda1ced56658f5eb0012202b as tor
+FROM alpine:3.20.0@sha256:77726ef6b57ddf65bb551896826ec38bc3e53f75cdde31354fbffb4f25238ebd as tor
 
 RUN apk add tor
 

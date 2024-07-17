@@ -28,7 +28,7 @@ ARG HELMFILE_VERSION=v0.166.0
 ARG VALS_VERSION=v0.37.3
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBERNETES_VERSION=v1.30.2
+ARG KUBERNETES_VERSION=v1.30.3
 
 # renovate: datasource=github-releases depName=cli/cli
 ARG GITHUB_CLI_VERSION=v2.52.0

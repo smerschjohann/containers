@@ -36,5 +36,10 @@
         "dir": "./images/tor",
         "target": "tor",
         "autoTag": true
+    },
+    {
+        "name": "fedtop",
+        "dir": "./images/fedtop",
+        "target": "fedtop"
     }
 ]

@@ -9,12 +9,19 @@
         "docker"
       ],
       "pinDigests": true
+    },
+    {
+      "matchPackageNames": [
+        "microsoft/vscode",
+        "brave/brave-browser"
+      ],
+      "automerge": true
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["(^|/|\.)([Dd]ocker|[Cc]ontainer)file$"],
+      "fileMatch": ["(^|/|\\.)([Dd]ocker|[Cc]ontainer)file$"],
       "matchStrings": [
         "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\sARG .*?_VERSION=(?<currentValue>.*)\\s"
       ],

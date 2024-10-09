@@ -4,6 +4,10 @@ This container includes code-server and additional tools like kubectl, docker, n
 
 See the Dockerfile for more details.
 
+# renovate updates
+
+this repository uses some autoupdate features, to automerge and build containers, when certain packages are updated.
+
 ## Usage
 The container is uploaded to the GHCR registry. A few examples are present below
 ## plain container

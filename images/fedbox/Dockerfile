@@ -1,7 +1,7 @@
 FROM docker.io/library/fedora:41@sha256:3a760edf030e474b55dd8618e6d2d90dcb1a924731960ed731eefd572610686e as fedbox
 ARG TARGETARCH
 
-RUN dnf install -y \
+RUN dnf remove -y shadow-utils && dnf install -y \
         procps-ng btop git \
         jq vim quilt fzf zsh \
         python python3-pip \

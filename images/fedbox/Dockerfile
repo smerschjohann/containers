@@ -9,8 +9,8 @@ RUN dnf install -y \
         bash-completion tmux \
         just nodejs sqlite3 golang \
         podman podman-compose podman-docker buildah \
-        libicu make dnf5 \
-        && \
+        libicu make \
+        shadow-utils && \
     dnf clean all && rm -rf /var/cache/yum
 
 COPY --chown=0:0 system_files /

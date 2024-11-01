@@ -68,7 +68,7 @@ jobs:
                cacheparams="--layers --cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
               fi
 
-              sudo buildah bud \
+              buildah bud \
                 --platform $PLATFORM \
                 -f $dir/Dockerfile \
                 --format docker \
@@ -78,7 +78,7 @@ jobs:
                 $cacheparams \
                 $dir
               
-              sudo buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+              buildah push $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
             done
           EOF
 

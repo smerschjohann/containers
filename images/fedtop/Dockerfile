@@ -1,7 +1,7 @@
 FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:9bdf9fdf82c997ca67ac301e7d0062912e98796d3fc51826bf0a7521eba20e26 AS fedtop
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.95.1
+ARG VSCODE_VERSION=1.95.2
 
 # renovate: datasource=github-releases depName=brave/brave-browser
 ARG BRAVE_VERSION=v1.73.70

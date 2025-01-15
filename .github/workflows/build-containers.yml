@@ -36,18 +36,18 @@ jobs:
           registry: ghcr.io
         run: |
           runcmd=/bin/bash
-          if [[ $PLATFORM == 'linux/amd64' ]]; then
-            mkdir -p ../containers
-            runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
-                          -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-                          --net=host --privileged --device /dev/fuse:rw \
-                          -v ../containers:/var/lib/containers:Z \
-                          -v $PWD:/root:ro \
-                          ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
-          fi
+          #if [[ $PLATFORM == 'linux/amd64' ]]; then
+          #  mkdir -p ../containers
+          #  runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
+          #                -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+          #                --net=host --privileged --device /dev/fuse:rw \
+          #                -v ../containers:/var/lib/containers:Z \
+          #                -v $PWD:/root:ro \
+          #                ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
+          #fi
 
           $runcmd << 'EOF'
-            cd /root
+            #cd /root
             echo -n $password | buildah login -u $username --password-stdin $registry 
             tasks=$(jq -c '.[]' images/tasks.json)
             for task in $tasks; do

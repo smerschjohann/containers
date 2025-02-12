@@ -18,7 +18,7 @@ COPY --chown=0:0 system_files /
 ENV HELM_PLUGINS=/opt/helm-plugins
 
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.17.0
+ARG HELM_VERSION=v3.17.1
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
 ARG HELMFILE_VERSION=v0.170.1

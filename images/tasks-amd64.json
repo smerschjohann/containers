@@ -1,0 +1,8 @@
+[
+    {
+        "name": "ollama",
+        "dir": "./images/ollama",
+        "target": "app",
+        "nocache": true
+    }
+]

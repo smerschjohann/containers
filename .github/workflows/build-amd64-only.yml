@@ -1,0 +1,59 @@
+name: Build, Merge, and Push
+
+permissions:
+  packages: write
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+env:
+  REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
+  TAG: 'latest'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: "ubuntu-latest"
+            platform: "linux/amd64"
+    runs-on: "${{ matrix.os }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Build and push containers
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+        run: |
+          echo -n $password | buildah login -u $username --password-stdin $registry 
+          tasks=$(jq -c '.[]' images/tasks-amd64.json)
+          for task in $tasks; do
+            name=$(echo $task | jq -r '.name')
+            dir=$(echo $task | jq -r '.dir')
+            target=$(echo $task | jq -r '.target')
+            image_name="$REGISTRY_REPO/$name"
+            
+            if git diff --quiet --exit-code HEAD^ HEAD $dir; then
+              echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
+              continue
+            fi
+
+            buildah bud \
+              --platform $PLATFORM \
+              -f $dir/Dockerfile \
+              --format docker \
+              --tls-verify=true \
+              -t $image_name:$TAG \
+              --target $target \
+              $dir
+            
+            buildah push $image_name:$TAG docker://$image_name:$TAG
+          done

@@ -33,7 +33,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
-          echo -n $password | buildah login -u $username --password-stdin $registry 
+          echo -n $password | docker login -u $username --password-stdin $registry 
           tasks=$(jq -c '.[]' images/tasks-amd64.json)
           for task in $tasks; do
             name=$(echo $task | jq -r '.name')

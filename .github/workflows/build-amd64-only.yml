@@ -46,14 +46,10 @@ jobs:
               continue
             fi
 
-            buildah bud \
-              --platform $PLATFORM \
+            docker buildx build
               -f $dir/Dockerfile \
-              --format docker \
-              --tls-verify=true \
               -t $image_name:$TAG \
               --target $target \
+              --push \
               $dir
-            
-            buildah push $image_name:$TAG docker://$image_name:$TAG
           done

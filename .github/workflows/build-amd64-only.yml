@@ -1,4 +1,4 @@
-name: Build, Merge, and Push
+name: Build AMD64 images
 
 permissions:
   packages: write
@@ -46,7 +46,7 @@ jobs:
               continue
             fi
 
-            docker buildx build
+            docker buildx build \
               -f $dir/Dockerfile \
               -t $image_name:$TAG \
               --target $target \

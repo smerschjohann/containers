@@ -4,7 +4,7 @@ ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
 
-FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubi9 AS cuda
+FROM docker.io/nvidia/cuda:12.8.0-cudnn-runtime-ubi9@sha256:f4f092cf224c7ee77820e31163dc85eee4d692d11390a0f7375a95ecda0c6d0e AS cuda
 #FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-rockylinux9
 
 RUN rpm --import http://download.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9

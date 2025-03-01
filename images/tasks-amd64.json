@@ -1,2 +1,8 @@
 [
+    {
+        "name": "cuda",
+        "dir": "./images/cuda",
+        "target": "cuda",
+        "nocache": true
+    }
 ]

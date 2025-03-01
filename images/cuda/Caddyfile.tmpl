@@ -1,0 +1,43 @@
+{
+    http_port 0
+    https_port 8443
+    auto_https off
+    skip_install_trust
+
+    servers {
+        strict_sni_host insecure_off
+    }
+}
+
+*.{{ .InternetIPDashed }}.{{ .IPDomain }}, *.{{ .IPDomain }}, *.{{ .LocalIPDashed }}.{{ .IPDomain }}, {{ .LocalIP }}, {{ .InternetIP }} {
+    map {host}                {service} {
+        ~(.*)\..*\.{{ .IPDomain }}$         "${1}"
+        ~([^-.]*)-[\d-]+\.{{ .IPDomain }}$  "${1}"
+    }
+
+    @code vars {service} code
+    handle @code {
+        reverse_proxy localhost:8080
+    }
+
+    @comfyui vars {service} comfy
+    handle @comfyui {
+        reverse_proxy localhost:8188
+    }
+
+    @port vars_regexp portm {service} p(\d+)
+    handle @port {
+        reverse_proxy localhost:{re.portm.1}
+    }
+
+    handle {
+        reverse_proxy localhost:8080
+    }
+
+    tls cert.pem key.pem {
+        client_auth {
+            mode require_and_verify
+            trust_pool file ca.pem
+        }
+    }
+}

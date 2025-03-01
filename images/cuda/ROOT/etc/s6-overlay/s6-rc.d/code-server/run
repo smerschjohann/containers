@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e;
+
+export HOME=/home/user
+
+. /venv/main/bin/activate
+
+exec code-server --disable-telemetry --auth none /workspace

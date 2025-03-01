@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e;
+
+cd /etc/caddy;
+/command/with-contenv gencert;
+exec caddy run

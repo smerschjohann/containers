@@ -1,10 +1,10 @@
-FROM docker.io/library/golang:1.24.0-alpine AS build
+FROM docker.io/library/golang:1.24.0-alpine@sha256:2d40d4fc278dad38be0777d5e2a88a2c6dee51b0b29c97a764fc6c6a11ca893c AS build
 
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
 
-FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubi9 AS cuda
+FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-ubi9@sha256:927dea4467e2e6ae3bd07ce4c8e9ff2be9956391f2f2d12e7010812defbefcd0 AS cuda
 #FROM docker.io/nvidia/cuda:12.4.1-cudnn-runtime-rockylinux9
 
 RUN rpm --import http://download.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-9
@@ -58,7 +58,7 @@ RUN mkdir -p /venv && \
     chown -R user:user /venv
 
 
-COPY --from=caddy:2.9.1-alpine /usr/bin/caddy /usr/bin/caddy
+COPY --from=caddy:2.9.1-alpine@sha256:b4e3952384eb9524a887633ce65c752dd7c71314d2c2acf98cd5c715aaa534f0 /usr/bin/caddy /usr/bin/caddy
 ADD Caddyfile.tmpl /etc/caddy/Caddyfile.tmpl
 
 RUN chmod a+rwx /etc/caddy

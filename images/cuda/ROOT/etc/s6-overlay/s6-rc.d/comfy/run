@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e;
+
+source /venv/main/bin/activate
+
+cd /opt/workspace-internal/ComfyUI/
+if [ -d /workspace/basedir ]; then
+    echo "Directory /workspace/basedir exists."
+else
+    echo "Directory /workspace/basedir does not exist. Creating it."
+    mkdir -p /workspace/basedir
+    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/ /workspace/basedir/
+fi
+
+export LD_PRELOAD=libtcmalloc_minimal.so.4
+exec python main.py  --preview-method auto --base-directory /workspace/basedir

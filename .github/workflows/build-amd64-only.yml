@@ -39,6 +39,8 @@ jobs:
             name=$(echo $task | jq -r '.name')
             dir=$(echo $task | jq -r '.dir')
             target=$(echo $task | jq -r '.target')
+            tag=$(echo $task | jq -r '.tag')
+            dockerfile=$(echo $task | jq -r '.dockerfile')
             image_name="$REGISTRY_REPO/$name"
             
             if git diff --quiet --exit-code HEAD^ HEAD $dir; then

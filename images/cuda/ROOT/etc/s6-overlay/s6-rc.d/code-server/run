@@ -1,8 +1,13 @@
-#!/bin/sh
+#!/command/with-contenv sh
 set -e;
 
 export HOME=/home/user
 
 . /venv/main/bin/activate
 
-exec code-server --disable-telemetry --auth none /workspace
+if [ -z "$VSCODE_PROXY_URI" ] && [ -n "$PUBLIC_IPADDR" ] && [ -n "$VAST_TCP_PORT_8443" ]; then
+    domain=$(echo $PUBLIC_IPADDR | sed 's/\./-/g')
+    export VSCODE_PROXY_URI="https://p{port}-${domain}.${IP_DOMAIN}:${VAST_TCP_PORT_8443}"
+fi
+
+exec code-server --disable-telemetry --auth none /workspace ${CODE_SERVER_ARGS}

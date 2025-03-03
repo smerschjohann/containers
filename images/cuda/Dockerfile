@@ -12,7 +12,7 @@ LABEL maintainer="Simon Merschjohann"
 
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \
-    dnf install -y gperftools-libs python3-pip python3.11 git acl xz zstd bzip2 procps-ng sudo mesa-libGLU g++ btop \
+    dnf install -y which gperftools-libs python3-pip python3.11 git acl xz zstd bzip2 procps-ng sudo mesa-libGLU g++ btop \
     aria2 \
     ffmpeg \
     && dnf clean all

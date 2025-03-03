@@ -10,7 +10,7 @@ on:
     branches:
       - main
 env:
-  REGISTRY_REPO: 'ghcr.io/${{ github.repository }}'
+  REGISTRY_REPO: 'registry.tty0.it'
   TAG: 'latest'
 
 jobs:
@@ -29,9 +29,9 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
+          username: ${{ secrets.CONTAINER_REG_USER }}
+          password: ${{ secrets.CONTAINER_REG_SECRET }}
+          registry: registry.tty0.it
         run: |
           echo -n $password | docker login -u $username --password-stdin $registry 
           tasks=$(jq -c '.[]' images/tasks-amd64.json)

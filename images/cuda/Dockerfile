@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.24.0-alpine@sha256:2d40d4fc278dad38be0777d5e2a88a2c6dee51b0b29c97a764fc6c6a11ca893c AS build
+FROM docker.io/library/golang:1.24.1-alpine@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb AS build
 
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go

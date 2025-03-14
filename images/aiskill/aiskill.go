@@ -17,23 +17,23 @@ import (
 // Global variables
 var (
 	geminiClient *genai.Client
-	contents     []genai.Part
+	chat         *genai.ChatSession
 )
 
 func askGemini(prompt string) (string, error) {
 	ctx := context.Background()
 
-	// Add to conversation history
-	contents = append(contents, genai.Text(prompt))
-
-	model := geminiClient.GenerativeModel("gemini-2.0-flash")
-	model.SystemInstruction = &genai.Content{
-		Parts: []genai.Part{
-			genai.Text("Halte dich kurz aber informativ, maximal 300 Worte. Keine Begrüßung."),
-		},
+	if chat == nil {
+		model := geminiClient.GenerativeModel("gemini-2.0-flash")
+		model.SystemInstruction = &genai.Content{
+			Parts: []genai.Part{
+				genai.Text("Halte dich kurz aber informativ, maximal 120 Worte. Keine Begrüßung."),
+			},
+		}
+		chat = model.StartChat()
 	}
 
-	response, err := model.GenerateContent(ctx, contents...)
+	response, err := chat.SendMessage(ctx, genai.Text(prompt))
 	if err != nil {
 		return "", err
 	}
@@ -81,7 +81,7 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 		alexaResponse = buildAlexaResponse(speechText, false, "Fahre fort")
 
 	case "AMAZON.LaunchIntent", "LaunchRequest":
-		contents = nil // Clear conversation history
+		chat = nil // Clear conversation history
 		alexaResponse = buildAlexaResponse("Hi!", false, "")
 
 	case "AMAZON.HelpIntent":

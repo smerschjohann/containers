@@ -1,5 +1,11 @@
 [
     {
+        "name": "aiskill",
+        "dir": "./images/aiskill",
+        "target": "app",
+        "nocache": true
+    },
+    {
         "name": "bw-cli",
         "dir": "./images/bw-cli",
         "target": "app",

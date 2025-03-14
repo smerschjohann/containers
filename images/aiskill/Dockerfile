@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:alpine@sha256:43c094ad24b6ac0546c62193baeb3e6e49ce14d3250845d166c77c25f64b0386 as builder
 WORKDIR /app
 
 RUN apk --update add --no-cache ca-certificates openssl git tzdata && update-ca-certificates

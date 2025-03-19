@@ -36,7 +36,7 @@ RUN groupadd -g 1000 user && \
 # renovate: datasource=github-releases depName=coder/code-server
 ARG CODE_SERVER_VERSION=v4.98.2
 
-RUN curl -L https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm -o /tmp/code-server-4.97.2-amd64.rpm && \
+RUN curl -L https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm -o /tmp/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm && \
     dnf install -y /tmp/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm && rm /tmp/*.rpm && \
     dnf clean all
 

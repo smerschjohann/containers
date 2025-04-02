@@ -6,7 +6,7 @@ RUN apk --update add --no-cache ca-certificates openssl git tzdata && update-ca-
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN  GO111MODULE="on" CGO_ENABLED=0 GOOS=linux go build -o main .
+RUN  GO111MODULE="on" CGO_ENABLED=0 GOOS=linux go build -o aiskill .
 
 FROM scratch as app
 LABEL maintainer="Simon Merschjohann"
@@ -14,6 +14,6 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 WORKDIR /app
-COPY --from=builder /app/main .
+COPY --from=builder /app/aiskill .
 EXPOSE 8080
-CMD ["./main"]
+CMD ["/app/aiskill"]

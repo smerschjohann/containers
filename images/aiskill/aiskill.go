@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -55,10 +55,10 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore for other handlers
 
-	log.Printf("Received Alexa request: %s", string(bodyBytes))
+	slog.Info("Received Alexa request", "body", string(bodyBytes))
 
 	intentName, slots := parseAlexaRequest(bodyBytes)
-	log.Printf("intent_name: %s slots: %v", intentName, slots)
+	slog.Info("Parsed Alexa request", "intent_name", intentName, "slots", slots)
 
 	var alexaResponse AlexaResponse
 
@@ -72,7 +72,7 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 
 		geminiResponse, err := askGemini(spokenSentence)
 		if err != nil {
-			log.Printf("Error calling Gemini API: %v", err)
+			slog.Error("Error calling Gemini API", "error", err)
 			speechText += " Entschuldigung, ich konnte keine Antwort generieren."
 		} else {
 			speechText += " " + geminiResponse
@@ -97,7 +97,7 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 		alexaResponse = buildAlexaResponse("Entschuldigung, ich habe das nicht verstanden.", false, "")
 	}
 
-	log.Printf("Sending Alexa response: %+v", alexaResponse)
+	slog.Info("Sending Alexa response", "response", alexaResponse)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(alexaResponse)
 }
@@ -107,18 +107,21 @@ func main() {
 	ctx := context.Background()
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		log.Fatal("GEMINI_API_KEY environment variable not set")
+		slog.Error("GEMINI_API_KEY environment variable not set")
+		return
 	}
 
 	skillId := os.Getenv("ALEXA_SKILL_ID")
 	if skillId == "" {
-		log.Fatal("ALEXA_SKILL_ID environment variable not set")
+		slog.Error("ALEXA_SKILL_ID environment variable not set")
+		return
 	}
 
 	var err error
 	geminiClient, err = genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		log.Fatalf("Failed to create Gemini client: %v", err)
+		slog.Error("Failed to create Gemini client", "error", err)
+		return
 	}
 	defer geminiClient.Close()
 
@@ -139,8 +142,9 @@ func main() {
 
 	// Run server
 	port := 9409
-	log.Printf("Starting server on port %d", port)
+	slog.Info("Starting server on port", "port", port)
 	if err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		slog.Error("Failed to start server", "error", err)
+		return
 	}
 }

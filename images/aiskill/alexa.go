@@ -246,7 +246,16 @@ func validateAlexaRequest(r *http.Request, expectedAppID string) bool {
 
 	appID := alexaReq.Session.Application.ApplicationID
 
-	if appID != expectedAppID {
+	expectedAppIDs := strings.Split(expectedAppID, ",")
+	isValidAppID := false
+	for _, id := range expectedAppIDs {
+		if strings.TrimSpace(id) == appID {
+			isValidAppID = true
+			break
+		}
+	}
+
+	if !isValidAppID {
 		log.Printf("Invalid application ID: %s", appID)
 		return false
 	}

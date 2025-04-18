@@ -67,6 +67,9 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 		spokenSentence, ok := slots["spokenSentence"]
 		speechText := ""
 
+		if !ok {
+			slog.Error("Slot 'spokenSentence' not found")
+		}
 		// if ok {
 		// 	speechText = fmt.Sprintf("Du hast gesagt: %s.", spokenSentence)
 		// }

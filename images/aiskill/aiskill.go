@@ -66,9 +66,9 @@ func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
 	case "CaptureSentenceIntent":
 		spokenSentence, ok := slots["spokenSentence"]
 		speechText := ""
-		if ok {
-			speechText = fmt.Sprintf("Du hast gesagt: %s.", spokenSentence)
-		}
+		// if ok {
+		// 	speechText = fmt.Sprintf("Du hast gesagt: %s.", spokenSentence)
+		// }
 
 		geminiResponse, err := askGemini(spokenSentence)
 		if err != nil {

@@ -3,7 +3,7 @@ module it.tty0.aiskill
 go 1.23.2
 
 require (
-	github.com/google/generative-ai-go v0.19.0
+	github.com/google/generative-ai-go v0.20.1
 	google.golang.org/api v0.231.0
 )
 

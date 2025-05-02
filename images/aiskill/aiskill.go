@@ -10,40 +10,44 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 // Global variables
 var (
 	geminiClient *genai.Client
-	chat         *genai.ChatSession
+	chat         *genai.Chat
 )
 
 func askGemini(prompt string) (string, error) {
 	ctx := context.Background()
 
 	if chat == nil {
-		model := geminiClient.GenerativeModel("gemini-2.0-flash")
-		model.SystemInstruction = &genai.Content{
-			Parts: []genai.Part{
-				genai.Text("Halte dich kurz aber informativ, maximal 120 Worte. Keine Begrüßung."),
+		history := []*genai.Content{}
+		var err error
+		chat, err = geminiClient.Chats.Create(ctx,
+			"gemini-2.0-flash",
+			&genai.GenerateContentConfig{
+				SystemInstruction: genai.NewContentFromText("Halte dich kurz aber informativ, maximal 120 Worte. Keine Begrüßung.", genai.RoleModel),
 			},
+			history,
+		)
+		if err != nil {
+			return "", err
 		}
-		chat = model.StartChat()
 	}
 
-	response, err := chat.SendMessage(ctx, genai.Text(prompt))
+	response, err := chat.SendMessage(ctx, genai.Part{Text: prompt})
 	if err != nil {
 		return "", err
 	}
 
-	part := response.Candidates[0].Content.Parts[0]
-	if text, ok := part.(genai.Text); ok {
-		return string(text), nil
+	if len(response.Candidates) == 0 {
+		return "", fmt.Errorf("no candidates in response")
 	}
 
-	return fmt.Sprintf("%v", part), nil
+	part := response.Candidates[0].Content.Parts[0]
+	return part.Text, nil
 }
 
 func handleAlexaRequest(w http.ResponseWriter, r *http.Request) {
@@ -122,12 +126,14 @@ func main() {
 	}
 
 	var err error
-	geminiClient, err = genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	geminiClient, err = genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  apiKey,
+		Backend: genai.BackendGeminiAPI,
+	})
 	if err != nil {
 		slog.Error("Failed to create Gemini client", "error", err)
 		return
 	}
-	defer geminiClient.Close()
 
 	// Set up HTTP server
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

@@ -4,7 +4,7 @@ FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:905b53bfd2fb247facc40d8d6b84cb
 ARG VSCODE_VERSION=1.100.2
 
 # renovate: datasource=github-releases depName=brave/brave-browser
-ARG BRAVE_VERSION=v1.79.82
+ARG BRAVE_VERSION=v1.81.22
 
 RUN dnf install -y dnf-plugins-core; \
     dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo; \

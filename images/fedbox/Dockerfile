@@ -1,4 +1,4 @@
-FROM docker.io/library/fedora:42@sha256:ee88ab8a5c8bf78687ddcecadf824767e845adc19d8cdedb56f48521eb162b43 as fedbox
+FROM docker.io/library/fedora:43@sha256:752797e54c0ea10dc7afa3e1d475e9bcab1bcef30e2b2eb4d27ab9f507ed02db as fedbox
 ARG TARGETARCH
 
 RUN dnf remove -y shadow-utils && dnf install -y \

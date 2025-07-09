@@ -2,7 +2,7 @@ module it.tty0.aiskill
 
 go 1.24.2
 
-require google.golang.org/genai v1.11.1
+require google.golang.org/genai v1.15.0
 
 require (
 	cloud.google.com/go v0.121.0 // indirect

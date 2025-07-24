@@ -30,7 +30,7 @@ ARG VALS_VERSION=v0.41.3
 ARG KUBERNETES_VERSION=v1.33.3
 
 # renovate: datasource=github-releases depName=cli/cli
-ARG GITHUB_CLI_VERSION=v2.76.0
+ARG GITHUB_CLI_VERSION=v2.76.1
 
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r32

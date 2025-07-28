@@ -17,6 +17,7 @@ import (
 var (
 	geminiClient *genai.Client
 	chat         *genai.Chat
+	modelName    string
 )
 
 func askGemini(prompt string) (string, error) {
@@ -26,7 +27,7 @@ func askGemini(prompt string) (string, error) {
 		history := []*genai.Content{}
 		var err error
 		chat, err = geminiClient.Chats.Create(ctx,
-			"gemini-2.0-flash",
+			modelName,
 			&genai.GenerateContentConfig{
 				SystemInstruction: genai.NewContentFromText("Halte dich kurz aber informativ, maximal 120 Worte. Keine Begrüßung.", genai.RoleModel),
 			},
@@ -124,6 +125,13 @@ func main() {
 		slog.Error("ALEXA_SKILL_ID environment variable not set")
 		return
 	}
+
+	// Set model name with default
+	modelName = os.Getenv("GEMINI_MODEL")
+	if modelName == "" {
+		modelName = "gemini-2.5-flash"
+	}
+	slog.Info("Using Gemini model", "model", modelName)
 
 	var err error
 	geminiClient, err = genai.NewClient(ctx, &genai.ClientConfig{

@@ -75,3 +75,50 @@ def clear(response_builder):
     response_builder.add_directive(ClearQueueDirective(
         clear_behavior=ClearBehavior.CLEAR_ENQUEUED))
     return response_builder.response
+
+
+def play_later(url, card_data, response_builder):
+    """Function to play audio later (enqueue).
+    
+    Using the function to enqueue audio when:
+        - PlaybackNearlyFinished request received.
+    """
+    # type: (str, Dict, ResponseFactory) -> Response
+    if card_data:
+        response_builder.set_card(
+            StandardCard(
+                title=card_data["title"], text=card_data["text"],
+                image=Image(
+                    small_image_url=card_data["small_image_url"],
+                    large_image_url=card_data["large_image_url"])
+            )
+        )
+
+    response_builder.add_directive(
+        PlayDirective(
+            play_behavior=PlayBehavior.ENQUEUE,
+            audio_item=AudioItem(
+                stream=Stream(
+                    token=url,
+                    url=url,
+                    offset_in_milliseconds=0,
+                    expected_previous_token=url),
+                metadata=None
+            )
+        )
+    ).set_should_end_session(True)
+
+    return response_builder.response
+
+
+def audio_data(request):
+    """Extract audio data from request for card display."""
+    # type: (Request) -> Dict
+    return {
+        "card": {
+            "title": "Radio Stream",
+            "text": "Streaming audio",
+            "small_image_url": None,
+            "large_image_url": None
+        }
+    }

@@ -504,31 +504,69 @@ import requests
 def pretty_print_json(json_data):
     logger.debug(json.dumps(json.loads(json_data), indent=2))
 
-@route('/radio', method=["GET"])
+@route('/radio', method=["GET", "HEAD"])
 def radio():
     try:
-        # Stream the audio directly instead of redirecting
-        audio_response = requests.get(MPD_RADIO_URL, stream=True)
+        # Check if this is a range request (required for Alexa compatibility)
+        range_header = request.headers.get('Range')
         
-        # Set appropriate headers for audio streaming
-        response.content_type = audio_response.headers.get('content-type', 'audio/mpeg')
-        if 'content-length' in audio_response.headers:
-            response.headers['Content-Length'] = audio_response.headers['content-length']
+        # Make request to the actual MPD radio stream
+        headers = {}
+        if range_header:
+            headers['Range'] = range_header
         
-        # Enable streaming
+        # Use HEAD method if this is a HEAD request
+        if request.method == 'HEAD':
+            audio_response = requests.head(MPD_RADIO_URL, headers=headers)
+        else:
+            audio_response = requests.get(MPD_RADIO_URL, headers=headers, stream=True)
+        
+        # Set Alexa-compatible headers
+        response.content_type = 'audio/mpeg'  # Force to audio/mpeg for Alexa compatibility
+        
+        # Handle range requests properly for Alexa
+        if range_header and audio_response.status_code == 206:
+            response.status = 206
+            if 'content-range' in audio_response.headers:
+                response.headers['Content-Range'] = audio_response.headers['content-range']
+            if 'content-length' in audio_response.headers:
+                response.headers['Content-Length'] = audio_response.headers['content-length']
+        else:
+            response.status = 200
+            # For live streams, don't set Content-Length
+            if 'content-length' in audio_response.headers:
+                response.headers['Content-Length'] = audio_response.headers['content-length']
+        
+        # Essential headers for Alexa AudioPlayer
         response.headers['Accept-Ranges'] = 'bytes'
-        response.headers['Cache-Control'] = 'no-cache'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        # CORS headers (if needed)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Range'
+        
+        # For HEAD requests, return empty body
+        if request.method == 'HEAD':
+            return ''
         
         # Stream the content
         def generate():
-            for chunk in audio_response.iter_content(chunk_size=8192):
-                if chunk:
-                    yield chunk
+            try:
+                for chunk in audio_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        yield chunk
+            except Exception as e:
+                logger.error(f"Error during streaming: {e}")
         
         return generate()
+        
     except Exception as e:
         logger.error(f"Error streaming audio: {e}")
         response.status = 500
+        response.content_type = 'text/plain'
         return "Error streaming audio"
 
 @route('/alexa', method=['POST'])

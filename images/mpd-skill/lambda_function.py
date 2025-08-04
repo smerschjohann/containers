@@ -33,6 +33,12 @@ MPD_RADIO_URL = os.getenv("MPD_RADIO_URL")
 MPD_HOST = os.getenv("MPD_HOST")
 MPD_PORT = int(os.getenv("MPD_PORT"))
 
+# Ensure RADIO_URL ends with .mp3 for Alexa compatibility
+if RADIO_URL and not RADIO_URL.endswith('.mp3'):
+    RADIO_URL_MP3 = RADIO_URL + '.mp3'
+else:
+    RADIO_URL_MP3 = RADIO_URL
+
 
 @contextmanager
 def connection():
@@ -114,7 +120,7 @@ class LaunchRequestOrPlayAudioHandler(AbstractRequestHandler):
                 logger.info("speak: %s", speech)
             except:
                 pass
-            return util.play(url=RADIO_URL,
+            return util.play(url=RADIO_URL_MP3,
                             offset=0,
                             text="ok",
                             card_data=None,
@@ -243,7 +249,7 @@ class ResumeIntentHandler(AbstractRequestHandler):
             except:
                 pass
         return util.play(
-            url=RADIO_URL, offset=0,
+            url=RADIO_URL_MP3, offset=0,
             text=speech, card_data=None,
             response_builder=handler_input.response_builder)
 
@@ -335,7 +341,7 @@ class PlaybackNearlyFinishedHandler(AbstractRequestHandler):
         logger.info("Playback nearly finished")
         request = handler_input.request_envelope.request
         return util.play_later(
-            url=RADIO_URL,
+            url=RADIO_URL_MP3,
             card_data=util.audio_data(request)["card"],
             response_builder=handler_input.response_builder)
 
@@ -355,7 +361,7 @@ class PlaybackFailedHandler(AbstractRequestHandler):
         request = handler_input.request_envelope.request
         logger.info("Playback failed: {}".format(request.error))
         return util.play(
-            url=RADIO_URL, offset=0, text=None,
+            url=RADIO_URL_MP3, offset=0, text=None,
             card_data=None,
             response_builder=handler_input.response_builder)
 
@@ -395,7 +401,7 @@ class PlayCommandHandler(AbstractRequestHandler):
         # type: (HandlerInput) -> Response
         logger.info("In PlayCommandHandler")
 
-        return util.play(url=RADIO_URL,
+        return util.play(url=RADIO_URL_MP3,
                          offset=0,
                          text="ok",
                          card_data=None,
@@ -506,68 +512,11 @@ def pretty_print_json(json_data):
 
 @route('/radio', method=["GET", "HEAD"])
 def radio():
-    try:
-        # Check if this is a range request (required for Alexa compatibility)
-        range_header = request.headers.get('Range')
-        
-        # Make request to the actual MPD radio stream
-        headers = {}
-        if range_header:
-            headers['Range'] = range_header
-        
-        # Use HEAD method if this is a HEAD request
-        if request.method == 'HEAD':
-            audio_response = requests.head(MPD_RADIO_URL, headers=headers)
-        else:
-            audio_response = requests.get(MPD_RADIO_URL, headers=headers, stream=True)
-        
-        # Set Alexa-compatible headers
-        response.content_type = 'audio/mpeg'  # Force to audio/mpeg for Alexa compatibility
-        
-        # Handle range requests properly for Alexa
-        if range_header and audio_response.status_code == 206:
-            response.status = 206
-            if 'content-range' in audio_response.headers:
-                response.headers['Content-Range'] = audio_response.headers['content-range']
-            if 'content-length' in audio_response.headers:
-                response.headers['Content-Length'] = audio_response.headers['content-length']
-        else:
-            response.status = 200
-            # For live streams, don't set Content-Length
-            if 'content-length' in audio_response.headers:
-                response.headers['Content-Length'] = audio_response.headers['content-length']
-        
-        # Essential headers for Alexa AudioPlayer
-        response.headers['Accept-Ranges'] = 'bytes'
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        # CORS headers (if needed)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Range'
-        
-        # For HEAD requests, return empty body
-        if request.method == 'HEAD':
-            return ''
-        
-        # Stream the content
-        def generate():
-            try:
-                for chunk in audio_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        yield chunk
-            except Exception as e:
-                logger.error(f"Error during streaming: {e}")
-        
-        return generate()
-        
-    except Exception as e:
-        logger.error(f"Error streaming audio: {e}")
-        response.status = 500
-        response.content_type = 'text/plain'
-        return "Error streaming audio"
+    return redirect(MPD_RADIO_URL, 302)
+
+@route('/radio.mp3', method=["GET", "HEAD"])
+def radio_mp3():
+    return redirect(MPD_RADIO_URL, 302)
 
 @route('/alexa', method=['POST'])
 def index():

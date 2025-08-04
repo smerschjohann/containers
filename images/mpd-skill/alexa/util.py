@@ -42,10 +42,9 @@ def play(url, offset, text, card_data, response_builder):
             play_behavior=PlayBehavior.REPLACE_ALL,
             audio_item=AudioItem(
                 stream=Stream(
-                    token=url,
+                    token="radio_stream",  # Unique token for the stream not required
                     url=url,
-                    offset_in_milliseconds=offset,
-                    expected_previous_token=None),
+                    offset_in_milliseconds=offset),
                 metadata=None
             )
         )

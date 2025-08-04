@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os, sys
 import time
+import requests
 
 import logging
 
@@ -498,13 +499,37 @@ webservice_handler = WebserviceSkillHandler(skill=sb.create())
 # Webserver
 #####################################################################
 from bottle import route, run, template, request, response, redirect
+import requests
 
 def pretty_print_json(json_data):
     logger.debug(json.dumps(json.loads(json_data), indent=2))
 
 @route('/radio', method=["GET"])
 def radio():
-    return redirect(MPD_RADIO_URL, 302)
+    try:
+        # Stream the audio directly instead of redirecting
+        audio_response = requests.get(MPD_RADIO_URL, stream=True)
+        
+        # Set appropriate headers for audio streaming
+        response.content_type = audio_response.headers.get('content-type', 'audio/mpeg')
+        if 'content-length' in audio_response.headers:
+            response.headers['Content-Length'] = audio_response.headers['content-length']
+        
+        # Enable streaming
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Cache-Control'] = 'no-cache'
+        
+        # Stream the content
+        def generate():
+            for chunk in audio_response.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        
+        return generate()
+    except Exception as e:
+        logger.error(f"Error streaming audio: {e}")
+        response.status = 500
+        return "Error streaming audio"
 
 @route('/alexa', method=['POST'])
 def index():

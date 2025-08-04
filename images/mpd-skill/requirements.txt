@@ -3,3 +3,4 @@ ask_sdk_webservice_support
 babel
 bottle
 python-mpd2
+requests

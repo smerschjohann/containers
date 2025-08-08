@@ -1,4 +1,4 @@
-FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:e6850968fd83a1cf556568b7c66c7bcc81052320000d51e1f4707fab2dcd494e AS fedtop
+FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:c65e863cde7dc160b3b4228bf08cb86de379803fdb3bc52146df88cb266663ac AS fedtop
 
 # renovate: datasource=github-releases depName=microsoft/vscode
 ARG VSCODE_VERSION=1.103.0

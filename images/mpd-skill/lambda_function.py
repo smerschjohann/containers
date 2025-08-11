@@ -360,10 +360,8 @@ class PlaybackFailedHandler(AbstractRequestHandler):
         logger.info("In PlaybackFailedHandler")
         request = handler_input.request_envelope.request
         logger.info("Playback failed: {}".format(request.error))
-        return util.play(
-            url=RADIO_URL_MP3, offset=0, text=None,
-            card_data=None,
-            response_builder=handler_input.response_builder)
+        return util.stop(text=None,
+                         response_builder=handler_input.response_builder)
 
 
 class ExceptionEncounteredHandler(AbstractRequestHandler):

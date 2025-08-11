@@ -21,7 +21,7 @@ ENV HELM_PLUGINS=/opt/helm-plugins
 ARG HELM_VERSION=v3.18.4
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.1.3
+ARG HELMFILE_VERSION=v1.1.4
 
 # renovate: datasource=github-releases depName=helmfile/vals
 ARG VALS_VERSION=v0.42.0

@@ -90,3 +90,4 @@ RUN chmod a+x /usr/bin/*
 USER coder
 EXPOSE 8080/tcp
 CMD [ "/usr/bin/code-server" ]
+

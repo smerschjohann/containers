@@ -79,13 +79,16 @@ FROM fedbox as fedbox-vscode
 ARG VSCODE_VERSION=1.104.0
 
 USER root
-RUN dnf install -y dnf-plugins-core; \
-    rpm --import https://packages.microsoft.com/keys/microsoft.asc; \
-    echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | tee /etc/yum.repos.d/vscode.repo > /dev/null; \
-    dnf check-update; \
-    dnf install -y code; \
-    dnf clean all
-    
+
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+        amd64|x86_64) VS_CODE_OS=cli-alpine-x64 ;; \
+        arm64|aarch64) VS_CODE_OS=cli-alpine-arm64 ;; \
+        *) echo "Unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    VS_CODE_URL="https://code.visualstudio.com/sha/download?build=stable&os=${VS_CODE_OS}"; \
+    curl -sL "$VS_CODE_URL" | tar zxvf - -C /usr/local/bin;
+
 USER coder
 
 

@@ -73,6 +73,21 @@ CMD [ "/usr/bin/zsh" ]
 
 USER coder
 
+FROM fedbox as fedbox-vscode
+
+# renovate: datasource=github-releases depName=microsoft/vscode
+ARG VSCODE_VERSION=1.104.0
+
+USER root
+RUN dnf install -y dnf-plugins-core; \
+    rpm --import https://packages.microsoft.com/keys/microsoft.asc; \
+    echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | tee /etc/yum.repos.d/vscode.repo > /dev/null; \
+    dnf check-update; \
+    dnf install -y code; \
+    dnf clean all
+    
+USER coder
+
 
 FROM fedbox as fedbox-codeserver
 

@@ -32,6 +32,11 @@
         "target": "fedbox-codeserver"
     },
     {
+        "name": "fedbox-vscode",
+        "dir": "./images/fedbox",
+        "target": "fedbox-vscode"
+    },
+    {
         "name": "traefik",
         "dir": "./images/traefik",
         "target": "traefik",

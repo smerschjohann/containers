@@ -7,7 +7,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \
-        just nodejs sqlite3 golang \
+        just nodejs sqlite3 \
         podman podman-compose podman-docker buildah \
         libicu make \
         shadow-utils && \
@@ -17,6 +17,8 @@ COPY --chown=0:0 system_files /
 
 ENV HELM_PLUGINS=/opt/helm-plugins
 
+ENV PATH="/usr/local/go/bin:${PATH}"
+
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v3.19.0
 
@@ -25,6 +27,9 @@ ARG HELMFILE_VERSION=v1.1.7
 
 # renovate: datasource=github-releases depName=helmfile/vals
 ARG VALS_VERSION=v0.42.1
+
+# Install Go from official tarball instead of distro package
+ARG GO_VERSION=1.25.1
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBERNETES_VERSION=v1.34.1
@@ -51,6 +56,13 @@ RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERS
     TMPDIR=$(mktemp -d) && \
     cd $TMPDIR; curl -sL "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${TARGETARCH}.tar.gz" | tar zxvf - && HOME=/etc/skel ./krew-linux_${TARGETARCH} install krew ctx ns && \
     rm -rf $TMPDIR
+
+RUN curl -sSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -o /tmp/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz && \
+    rm -rf /usr/local/go && \
+    tar -C /usr/local -xzf /tmp/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz && \
+    rm -f /tmp/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz && \
+    chmod -R 0755 /usr/local/go/bin && \
+    ln -sf /usr/local/go/bin/go /usr/local/bin/go
 
 RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd

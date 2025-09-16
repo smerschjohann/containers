@@ -74,6 +74,7 @@ CMD [ "/usr/bin/zsh" ]
 USER coder
 
 FROM fedbox as fedbox-vscode
+ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
 ARG VSCODE_VERSION=1.104.0

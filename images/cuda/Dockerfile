@@ -79,10 +79,10 @@ ENV PATH /home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr
 RUN code-server --install-extension ms-toolsai.jupyter ms-python.python
 
 # renovate: datasource=github-releases depName=comfyanonymous/ComfyUI
-ARG COMFYUI_REF=v0.3.18
+ARG COMFYUI_REF=v0.3.60
 
 RUN source /venv/main/bin/activate && \
-    pip install --no-cache-dir -U torch torchvision torchaudio xformers --index-url https://download.pytorch.org/whl/cu124 && \
+    pip install --no-cache-dir -U torch torchvision torchaudio xformers --index-url https://download.pytorch.org/whl/cu129 && \
     cd /opt/workspace-internal/ && \
     git clone https://github.com/comfyanonymous/ComfyUI -b "${COMFYUI_REF}" && \
     cd /opt/workspace-internal/ComfyUI && \

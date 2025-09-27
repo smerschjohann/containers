@@ -1,2 +1,10 @@
 [
+    {
+        "name": "cuda",
+        "dir": "./images/cuda",
+        "tag": "latest",
+        "dockerfile": "Dockerfile",
+        "target": "cuda",
+        "nocache": true
+    }
 ]

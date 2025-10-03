@@ -52,5 +52,10 @@
         "name": "fedtop",
         "dir": "./images/fedtop",
         "target": "fedtop"
+    },
+    {
+        "name": "sync",
+        "dir": "./images/sync",
+        "target": "sync"
     }
 ]

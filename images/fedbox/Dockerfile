@@ -65,7 +65,8 @@ RUN curl -sSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -o 
     ln -sf /usr/local/go/bin/go /usr/local/bin/go
 
 RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
-    echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
+    echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd && \
+    chmod 0400 /etc/shadow
 
 VOLUME [ "/home/coder" ]
 ENV HOME=/home/coder

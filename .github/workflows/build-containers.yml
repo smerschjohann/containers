@@ -118,7 +118,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
-          echo -n $password | buildah login -u $username --password-stdin $registry 
+          echo -n $password | docker login -u $username --password-stdin $registry 
 
       - name: Download amd64 digests
         uses: actions/download-artifact@v4
@@ -154,9 +154,8 @@ jobs:
               continue
             fi
 
-            buildah manifest rm $final_manifest > /dev/null 2> /dev/null || true
-            buildah manifest create $final_manifest
-
+            # Collect source images with digests
+            sources=()
             for arch in "amd64" "arm64"; do
               digestfile="/tmp/digests/$arch/digests-$arch.json"
               if [ -f "$digestfile" ]; then
@@ -165,25 +164,29 @@ jobs:
                   digest=$(echo "$entry" | jq -r '.digest // empty')
                   arch_tag=$(echo "$entry" | jq -r '.tag // empty')
                   
-                  if [ -n "$digest" ] && [ "$digest" != "null" ] && [ "$digest" != "" ] && [ -n "$arch_tag" ]; then
-                    echo "Using digest for $image_name:$arch_tag@$digest"
-                    buildah manifest add $final_manifest docker://$image_name:$arch_tag@$digest
+                  if [ -n "$digest" ] && [ "$digest" != "null" ] && [ -n "$arch_tag" ]; then
+                    echo "Adding source: $image_name:$arch_tag@$digest"
+                    sources+=("$image_name:$arch_tag@$digest")
                   else
-                    echo "No digest available for $image_name ($arch), falling back to pull"
-                    buildah pull --arch $arch $image_name:$arch-$TAG
-                    buildah manifest add $final_manifest docker://$image_name:$arch-$TAG
+                    echo "Warning: No digest for $arch, using tag only"
+                    sources+=("$image_name:$arch-$TAG")
                   fi
                 else
-                  echo "No entry found for $image_name in $arch digest file, falling back to pull"
-                  buildah pull --arch $arch $image_name:$arch-$TAG
-                  buildah manifest add $final_manifest docker://$image_name:$arch-$TAG
+                  echo "Warning: No entry found for $image_name in $arch digest file"
+                  sources+=("$image_name:$arch-$TAG")
                 fi
               else
-                echo "Digest file not found for $arch, falling back to pull"
-                buildah pull --arch $arch $image_name:$arch-$TAG
-                buildah manifest add $final_manifest docker://$image_name:$arch-$TAG
+                echo "Warning: Digest file not found for $arch"
+                sources+=("$image_name:$arch-$TAG")
               fi
             done
 
-            buildah manifest push --rm --all $final_manifest docker://$final_manifest
+            # Create multi-arch manifest using imagetools
+            if [ ${#sources[@]} -gt 0 ]; then
+              echo "Creating manifest: $final_manifest from ${sources[@]}"
+              docker buildx imagetools create -t "$final_manifest" "${sources[@]}"
+            else
+              echo "Error: No source images found for $name"
+              exit 1
+            fi
           done

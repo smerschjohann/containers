@@ -3,7 +3,7 @@ FROM docker.io/library/golang:1.25.4-alpine@sha256:d2ede9f3341a67413127cf5366bb2
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
-FROM docker.io/nvidia/cuda:13.0.1-cudnn-runtime-rockylinux9@sha256:aca07fcabedf98da3a7ab5e9488c2296257f804119a28cf89effa12955a4dc80 AS cuda
+FROM docker.io/nvidia/cuda:13.0.2-cudnn-runtime-rockylinux9@sha256:f9f4dfb874082ad8866d4cf31a4f25e66d0291c897cadb7a01505e171a243dee AS cuda
 
 LABEL org.opencontainers.image.source="https://github.com/smerschjohann/containers/"
 LABEL org.opencontainers.image.description="Image for AI/ML development with CUDA 12.4.1 and Python 3.11"

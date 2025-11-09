@@ -59,7 +59,7 @@ jobs:
               name=$(echo $task | jq -r '.name')
               dir=$(echo $task | jq -r '.dir')
               target=$(echo $task | jq -r '.target')
-              nocache=$(echo $task | jq -c '.nocache')
+              forcecache=$(echo $task | jq -r '.cache')
               image_name="$REGISTRY_REPO/$name"
               
               if git diff --quiet --exit-code HEAD^ HEAD $dir; then
@@ -69,7 +69,7 @@ jobs:
 
 
               cacheparams=""
-              if [[ $nocache != true ]]; then
+              if [[ "$forcecache" == "true" ]]; then
                cacheparams="--layers --cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
               fi
 

@@ -60,6 +60,7 @@ jobs:
               dir=$(echo $task | jq -r '.dir')
               target=$(echo $task | jq -r '.target')
               forcecache=$(echo $task | jq -r '.cache')
+              nolayers=$(echo $task | jq -r '.nolayers')
               image_name="$REGISTRY_REPO/$name"
               
               if git diff --quiet --exit-code HEAD^ HEAD $dir; then
@@ -67,10 +68,14 @@ jobs:
                 continue
               fi
 
+              layers="--layers"
+              if [[ $nolayers == "true" ]]; then
+                layers=""
+              fi
 
               cacheparams=""
               if [[ "$forcecache" == "true" ]]; then
-               cacheparams="--layers --cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
+               cacheparams="--cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
               fi
 
               buildah bud \
@@ -80,7 +85,7 @@ jobs:
                 --tls-verify=true \
                 -t $image_name:$ARCH-$TAG \
                 --target $target \
-                $cacheparams \
+                $layers $cacheparams \
                 $dir
               
               # use --digestfile to capture digest directly from buildah push

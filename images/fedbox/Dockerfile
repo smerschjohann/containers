@@ -3,7 +3,7 @@ ARG TARGETARCH
 
 RUN dnf remove -y shadow-utils && dnf install -y \
         procps-ng moreutils btop git \
-        jq vim quilt fzf zsh \
+        jq vim quilt fzf zsh age \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \

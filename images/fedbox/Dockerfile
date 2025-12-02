@@ -52,7 +52,7 @@ RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERS
     curl -sL "https://github.com/gokcehan/lf/releases/download/${LF_VERSION}/lf-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     rm -f /usr/local/bin/LICENSE /usr/local/bin/README* && chmod a+x /usr/local/bin/* && \
     mkdir -p /opt/helm-plugins && \
-    helm plugin install https://github.com/databus23/helm-diff && \
+    helm plugin install https://github.com/databus23/helm-diff --verify=false && \
     TMPDIR=$(mktemp -d) && \
     cd $TMPDIR; curl -sL "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_${TARGETARCH}.tar.gz" | tar zxvf - && HOME=/etc/skel ./krew-linux_${TARGETARCH} install krew ctx ns && \
     rm -rf $TMPDIR

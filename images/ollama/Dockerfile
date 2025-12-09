@@ -1,4 +1,4 @@
-FROM ollama/ollama:latest@sha256:8850b8b33936b9fb246e7b3e02849941f1151ea847e5fb15511f17de9589aea1 AS app
+FROM ollama/ollama:latest@sha256:ceaad0844eda02ddc59d9b40551de7264a564ba7a16a90e241d1c582f0df992d AS app
 
 ENV OLLAMA_HOST=0.0.0.0
 

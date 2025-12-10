@@ -35,7 +35,7 @@ ARG GO_VERSION=1.25.1
 ARG KUBERNETES_VERSION=v1.34.2
 
 # renovate: datasource=github-releases depName=cli/cli
-ARG GITHUB_CLI_VERSION=v2.83.1
+ARG GITHUB_CLI_VERSION=v2.83.2
 
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r32

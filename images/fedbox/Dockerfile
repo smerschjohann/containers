@@ -20,7 +20,7 @@ ENV HELM_PLUGINS=/opt/helm-plugins
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v4.0.1
+ARG HELM_VERSION=v4.0.4
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
 ARG HELMFILE_VERSION=v1.2.2

@@ -23,7 +23,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ARG HELM_VERSION=v4.0.4
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.2.2
+ARG HELMFILE_VERSION=v1.2.3
 
 # renovate: datasource=github-releases depName=helmfile/vals
 ARG VALS_VERSION=v0.42.6

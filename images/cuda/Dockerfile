@@ -34,7 +34,7 @@ RUN groupadd -g 1000 user && \
     setfacl -d -m g:user:rw- /opt/workspace-internal/
 
 # renovate: datasource=github-releases depName=coder/code-server
-ARG CODE_SERVER_VERSION=v4.108.0
+ARG CODE_SERVER_VERSION=v4.108.2
 
 RUN curl -L https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm -o /tmp/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm && \
     dnf install -y /tmp/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm && rm /tmp/*.rpm && \

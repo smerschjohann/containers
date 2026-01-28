@@ -63,7 +63,7 @@ ARG S6_OVERLAY_VERSION=v3.2.0.2
 RUN curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz | tar -C / -Jxpf - && \
     curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz | tar -C / -Jxpf -
 
-COPY --from=caddy:2.10.2-alpine@sha256:f2b257f20955d6be2229bed86bad24193eeb8c4dc962a4031a6eb42344ffa457 /usr/bin/caddy /usr/bin/caddy
+COPY --from=caddy:2.10.2-alpine@sha256:d20ae4dc75c930dc23b12c3659de457fb2a15f5ac1fcf8cb8d5b7bf5f330e223 /usr/bin/caddy /usr/bin/caddy
 ADD Caddyfile.tmpl /etc/caddy/Caddyfile.tmpl
 RUN chmod a+rwx /etc/caddy
 

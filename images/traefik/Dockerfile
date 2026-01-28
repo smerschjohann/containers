@@ -1,4 +1,4 @@
-FROM docker.io/library/traefik:v3.6.7@sha256:ebe7d3fc715e28f033cea8265e9105b9d64705867f5b916e2d9ed0b62c530192 AS traefik
+FROM docker.io/library/traefik:v3.6.7@sha256:140d1fe3ba042682b8c93e8d0fdff043f9d6b27654bd9e84599d7ed220cf2ec7 AS traefik
 
 # allows rootless traefik to listen on ports < 1024 if NET_BIND_SERVICE is set
 RUN apk add --no-cache libcap && \

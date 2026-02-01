@@ -2,7 +2,7 @@ FROM docker.io/library/fedora:43@sha256:6cd815d862109208adf6040ea13391fe6aeb87a9
 ARG TARGETARCH
 
 RUN dnf remove -y shadow-utils && dnf install -y \
-        procps-ng moreutils btop git \
+        procps-ng moreutils btop git wget \
         jq vim quilt fzf zsh age gdu \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \

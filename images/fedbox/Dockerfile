@@ -40,6 +40,8 @@ ARG GITHUB_CLI_VERSION=v2.86.0
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r32
 
+ARG CRANE_VERSION=v0.20.7
+
 RUN curl -LO https://github.com/cli/cli/releases/download/${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
     dnf install -y gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
     rm gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
@@ -50,6 +52,7 @@ RUN curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERS
     curl -sL "https://github.com/helmfile/helmfile/releases/download/${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     curl -sL "https://github.com/helmfile/vals/releases/download/${VALS_VERSION}/vals_${VALS_VERSION#v}_linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     curl -sL "https://github.com/gokcehan/lf/releases/download/${LF_VERSION}/lf-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
+    curl -sL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin && \
     rm -f /usr/local/bin/LICENSE /usr/local/bin/README* && chmod a+x /usr/local/bin/* && \
     mkdir -p /opt/helm-plugins && \
     helm plugin install https://github.com/databus23/helm-diff --verify=false && \

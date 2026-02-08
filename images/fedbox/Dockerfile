@@ -10,7 +10,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         just nodejs sqlite3 \
         podman podman-compose podman-docker buildah \
         libicu make \
-        shadow-utils && \
+        shadow-utils mkfs.ext4 iproute && \
     dnf clean all && rm -rf /var/cache/yum
 
 COPY --chown=0:0 system_files /
@@ -78,7 +78,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.108.2
+ARG VSCODE_VERSION=1.109.0
 
 USER root
 
@@ -104,6 +104,7 @@ ARG CODE_SERVER_VERSION=v4.108.2
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \
     dnf install -y code-server*.rpm && rm code-server*.rpm && \
+    dnf install -y openssh-server && \
     dnf clean all && \
   	rm -rf /var/cache/yum
 RUN chmod a+x /usr/bin/*

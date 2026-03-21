@@ -65,6 +65,7 @@ RUN curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/$
 
 COPY --from=caddy:2.11.2-alpine@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355d5ea28eee53910624acedfa /usr/bin/caddy /usr/bin/caddy
 ADD Caddyfile.tmpl /etc/caddy/Caddyfile.tmpl
+ADD landing.html /etc/caddy/landing.html
 RUN chmod a+rwx /etc/caddy
 
 VOLUME [ "/workspace" ]
@@ -73,32 +74,21 @@ WORKDIR /workspace
 RUN chown -R user:user /workspace /home/user
 
 USER user
-ENV HOME /home/user
-ENV PATH /home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV HOME=/home/user
+ENV PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN code-server --install-extension ms-toolsai.jupyter ms-python.python
 
 # renovate: datasource=github-releases depName=comfyanonymous/ComfyUI
-ARG COMFYUI_REF=v0.3.60
+ARG COMFYUI_REF=v0.18.0
 
 RUN source /venv/main/bin/activate && \
-    pip install --no-cache-dir -U torch torchvision torchaudio xformers --index-url https://download.pytorch.org/whl/cu129 && \
+    pip install --no-cache-dir -U torch torchvision torchaudio xformers --index-url https://download.pytorch.org/whl/cu130
+RUN source /venv/main/bin/activate && \
     cd /opt/workspace-internal/ && \
     git clone https://github.com/comfyanonymous/ComfyUI -b "${COMFYUI_REF}" && \
     cd /opt/workspace-internal/ComfyUI && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir accelerate clip_interrogator>=0.6.0 lark opencv-python sentencepiece spandrel matplotlib onnxruntime-gpu peft pywavelets diffusers && \
-    # Avoid Jupyter directory display bug
-    ln -s /opt/workspace-internal/ComfyUI/models/checkpoints /opt/workspace-internal/ComfyUI/models/ckpt && \
-    # Install critical custom nodes
-    cd /opt/workspace-internal/ComfyUI/custom_nodes && \
-    git clone https://github.com/ltdrdata/ComfyUI-Manager && \
-    pip install --no-cache-dir -r ComfyUI-Manager/requirements.txt && \
-    git clone https://github.com/cubiq/ComfyUI_essentials && \
-    pip install --no-cache-dir -r ComfyUI_essentials/requirements.txt && \
-    git clone https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes && \
-    git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale --recursive --depth 1 && \
-    pip install --no-cache-dir gguf imageio-ffmpeg && \
     # Download custom models into the build if you want them - None included in default build
     # wget -O /opt/workspace-internal/ComfyUI/models/checkpoints/model1.safetensors https://url.to.files/model1.safetensors && \
     # wget -O /opt/workspace-internal/ComfyUI/models/checkpoints/model2.safetensors https://url.to.files/model2.safetensors && \

@@ -13,4 +13,12 @@ else
 fi
 
 export LD_PRELOAD=libtcmalloc_minimal.so.4
-exec python main.py  --preview-method auto --base-directory /workspace/basedir
+
+# Reduce allocator fragmentation unless explicitly overridden.
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True,max_split_size_mb:128}"
+
+# Default to no VRAM mode for better compatibility on <=10GB GPUs.
+# Override with COMFYUI_VRAM_FLAG (e.g. --normalvram, --lowvram, --novram).
+vram_flag="${COMFYUI_VRAM_FLAG:---novram}"
+
+exec python main.py --preview-method auto --base-directory /workspace/basedir ${vram_flag} ${COMFYUI_ARGS}

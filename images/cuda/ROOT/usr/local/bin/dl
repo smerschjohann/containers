@@ -1,0 +1,50 @@
+#!/bin/bash
+
+TOKEN=""
+URL=""
+ARGS=()
+
+# Basic flag parsing
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -t|--token)
+      TOKEN="$2"
+      shift 2
+      ;;
+    *)
+      if [ -z "$URL" ]; then
+        URL="$1"
+      else
+        # Pass through other arguments to aria2c
+        ARGS+=("$1")
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$URL" ]; then
+  echo "Usage: dl [-t <token>] <URL> [aria2c-args...]"
+  exit 1
+fi
+
+# Fallback to HF_TOKEN env var if no token provided via flag AND URL is huggingface.co
+if [ -z "$TOKEN" ] && [[ "$URL" == *"huggingface.co"* ]] && [ -n "$HF_TOKEN" ]; then
+    TOKEN="$HF_TOKEN"
+fi
+
+# Extract filename: remove query string, then take the last part of the path
+FILENAME=$(echo "$URL" | cut -d? -f1 | sed 's#/*$##' | rev | cut -d/ -f1 | rev)
+
+if [ -n "$TOKEN" ]; then
+    ARGS+=(--header="Authorization: Bearer $TOKEN")
+fi
+
+if [ -z "$FILENAME" ]; then
+    echo "Could not determine filename from URL. Using aria2c defaults."
+else
+    echo "Downloading $URL as $FILENAME..."
+    ARGS+=(-o "$FILENAME")
+fi
+
+aria2c "${ARGS[@]}" "$URL"

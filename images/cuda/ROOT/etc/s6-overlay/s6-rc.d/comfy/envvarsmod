@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Read config from mount point if it exists
+if [ -f /etc/comfyui/config ]; then
+    source /etc/comfyui/config
+fi
+
+# Allow override via /proc/sys if needed (for extra flexibility)
+# This is optional - removes if not needed

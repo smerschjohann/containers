@@ -21,4 +21,8 @@ fi
 
 export LD_PRELOAD=libtcmalloc_minimal.so.4
 
-exec python main.py --base-directory /workspace/basedir ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}
+if [ "$SAGEATTENTION_USE" != "0" ] && { [ "$SAGEATTENTION_VERSION" = "v2" ] || [ "$SAGEATTENTION_VERSION" = "v3" ]; }; then
+    exec python main.py --base-directory /workspace/basedir --use-sage-attention ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}
+else
+    exec python main.py --base-directory /workspace/basedir ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}
+fi

@@ -56,7 +56,7 @@ RUN source /venv/main/bin/activate && \
     pip install --no-cache-dir -r ComfyUI-KJNodes/requirements.txt
 
 # STAGE 3: Final Runtime
-FROM docker.io/nvidia/cuda:13.2.0-base-rockylinux10 AS cuda
+FROM docker.io/nvidia/cuda:13.2.0-base-rockylinux10@sha256:02b46bd54329f0e03703841962a2e2139904ea2cff849cd498897183c6f07ce0 AS cuda
 
 LABEL org.opencontainers.image.source="https://github.com/smerschjohann/containers/"
 LABEL org.opencontainers.image.description="Image for AI/ML development with CUDA 13.2.0 (Optimized)"

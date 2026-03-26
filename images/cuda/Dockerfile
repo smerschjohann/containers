@@ -95,6 +95,7 @@ COPY --from=caddy:2.11.2-alpine@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355
 ENV PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/go/bin:/venv/main/bin:$PATH
 ENV HOME=/home/user
 ENV SAGEATTENTION_USE=1
+ENV LD_LIBRARY_PATH=/usr/local/cuda/targets/x86_64-linux/lib:/usr/local/cuda-13.0/targets/x86_64-linux/lib:${LD_LIBRARY_PATH}
 
 VOLUME [ "/workspace" ]
 WORKDIR /workspace

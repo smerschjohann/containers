@@ -92,9 +92,6 @@ COPY --from=builder --chown=1000:1000 /opt/workspace-internal /opt/workspace-int
 COPY --from=go-build /gencert /usr/local/bin/gencert
 COPY --from=caddy:2.11.2-alpine@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355d5ea28eee53910624acedfa /usr/bin/caddy /usr/bin/caddy
 
-
-# Fix CUBLAS Collision: Prioritize PyTorch internal libraries to avoid collisions with system-provided cuda-base libs
-ENV LD_LIBRARY_PATH=/venv/main/lib64/python3.12/site-packages/nvidia/cu13/lib:/venv/main/lib64/python3.12/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
 ENV PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/go/bin:/venv/main/bin:$PATH
 ENV HOME=/home/user
 ENV SAGEATTENTION_USE=1

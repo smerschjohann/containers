@@ -68,7 +68,7 @@ ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \
-    dnf install -y which gperftools-libs python3 python3-pip git acl xz zstd bzip2 procps-ng sudo mesa-libGLU btop ffmpeg aria2 && \
+    dnf install -y which gperftools-libs python3 python3-pip git acl xz zstd openssl bzip2 procps-ng sudo mesa-libGLU btop ffmpeg aria2 && \
     curl -L https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm -o /tmp/code.rpm && \
     dnf install -y /tmp/code.rpm && rm /tmp/code.rpm && \
     dnf clean all && rm -rf /var/cache/dnf/* && \

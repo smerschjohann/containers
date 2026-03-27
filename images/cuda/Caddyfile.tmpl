@@ -15,6 +15,11 @@
         ~([^-.]*)-[\d-]+\.{{ .IPDomain }}$  "${1}"
     }
 
+    @dufs vars {service} dufs
+    handle @dufs {
+        reverse_proxy localhost:9191
+    }
+
     @code vars {service} code
     handle @code {
         reverse_proxy localhost:8080

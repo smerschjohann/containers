@@ -1,0 +1,14 @@
+#!/command/with-contenv sh
+set -e
+
+# Generate random credentials if not provided
+DUFS_USER="${DUFS_USER:-dufs_$(openssl rand -hex 4)}"
+DUFS_PASSWORD="${DUFS_PASSWORD:-$(openssl rand -base64 12)}"
+
+# Log credentials (only log them once, in a way that might not leak to serious logs)
+echo "DUFS Service starting on port 9191"
+echo "DUFS User: $DUFS_USER"
+echo "DUFS Password: $DUFS_PASSWORD"
+
+# Start dufs
+exec dufs -a "${DUFS_USER}:${DUFS_PASSWORD}@/workspace" -p 9191 /workspace

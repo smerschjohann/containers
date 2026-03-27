@@ -78,6 +78,13 @@ RUN dnf install epel-release -y && crb enable && \
 RUN curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz | tar -C / -Jxpf - && \
     curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz | tar -C / -Jxpf -
 
+# Install dufs
+RUN curl -L https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/dufs.tar.gz && \
+    tar -xzf /tmp/dufs.tar.gz -C /tmp/ && \
+    mv /tmp/dufs /usr/local/bin/dufs && \
+    chmod +x /usr/local/bin/dufs && \
+    rm /tmp/dufs.tar.gz
+
 # Setup User and Workspace
 RUN groupadd -g 1000 user && \
     useradd -ms /bin/bash user -u 1000 -g 1000 && \

@@ -7,8 +7,16 @@ DUFS_PASSWORD="${DUFS_PASSWORD:-$(openssl rand -base64 12)}"
 
 # Log credentials (only log them once, in a way that might not leak to serious logs)
 echo "DUFS Service starting on port 9191"
-echo "DUFS User: $DUFS_USER"
-echo "DUFS Password: $DUFS_PASSWORD"
+if [ "${DUFS_NO_AUTH:-0}" = "1" ]; then
+  echo "DUFS no-auth mode enabled (DUFS_NO_AUTH=1), running without -a credential block"
+else
+  echo "DUFS User: $DUFS_USER"
+  echo "DUFS Password: $DUFS_PASSWORD"
+fi
 
 # Start dufs
-exec dufs -a "${DUFS_USER}:${DUFS_PASSWORD}@/workspace" -p 9191 /workspace
+if [ "${DUFS_NO_AUTH:-0}" = "1" ]; then
+  exec dufs -A -p 9191 /workspace
+else
+  exec dufs -A -a "${DUFS_USER}:${DUFS_PASSWORD}@/" -p 9191 /workspace
+fi

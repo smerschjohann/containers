@@ -101,19 +101,23 @@
   <div class="cards">
     <a class="card" id="link-code" href="#">
       <span class="card-title">Code Server</span>
-      <span class="card-desc">VS Code im Browser</span>
+      <span class="card-desc">VS Code in browser</span>
     </a>
     <a class="card" id="link-comfy" href="#">
       <span class="card-title">ComfyUI</span>
-      <span class="card-desc">KI Bild-Workflow-Editor</span>
+      <span class="card-desc">AI image workflow editor</span>
+    </a>
+    <a class="card" id="link-dufs" href="#">
+      <span class="card-title">DUFS</span>
+      <span class="card-desc">Filesystem web UI (dufs)</span>
     </a>
   </div>
 
   <div class="port-box">
-    <label for="port-input">Port weiterleiten</label>
+    <label for="port-input">Open external port</label>
     <div class="port-row">
-      <input type="number" id="port-input" placeholder="z. B. 8888" min="1" max="65535" />
-      <button onclick="goToPort()">Öffnen</button>
+      <input type="number" id="port-input" placeholder="e.g. 8888" min="1" max="65535" />
+      <button onclick="goToPort()">Open</button>
     </div>
   </div>
 
@@ -125,6 +129,7 @@
 
     document.getElementById("link-code").href  = serviceUrl("code");
     document.getElementById("link-comfy").href = serviceUrl("comfy");
+    document.getElementById("link-dufs").href = serviceUrl("dufs");
 
     document.getElementById("port-input").addEventListener("keydown", function(e) {
       if (e.key === "Enter") goToPort();

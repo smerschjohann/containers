@@ -53,7 +53,9 @@ RUN source /venv/main/bin/activate && \
     git clone https://github.com/city96/ComfyUI-GGUF.git --depth 1 && \
     pip install --no-cache-dir -r ComfyUI-GGUF/requirements.txt && \
     git clone https://github.com/kijai/ComfyUI-KJNodes.git --depth 1 && \
-    pip install --no-cache-dir -r ComfyUI-KJNodes/requirements.txt
+    pip install --no-cache-dir -r ComfyUI-KJNodes/requirements.txt && \
+    git clone https://github.com/slahiri/ComfyUI-Workflow-Models-Downloader.git --depth 1 && \
+    pip install --no-cache-dir -r ComfyUI-Workflow-Models-Downloader/requirements.txt
 
 # STAGE 3: Final Runtime
 FROM docker.io/nvidia/cuda:13.2.0-base-rockylinux10@sha256:02b46bd54329f0e03703841962a2e2139904ea2cff849cd498897183c6f07ce0 AS cuda

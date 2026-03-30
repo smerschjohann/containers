@@ -57,5 +57,10 @@
         "name": "sync",
         "dir": "./images/sync",
         "target": "sync"
+    },
+    {
+        "name": "squid",
+        "dir": "./images/squid",
+        "target": "squid"
     }
 ]

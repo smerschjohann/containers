@@ -29,7 +29,7 @@ ARG HELMFILE_VERSION=v1.4.3
 ARG VALS_VERSION=v0.43.7
 
 # Install Go from official tarball instead of distro package
-ARG GO_VERSION=1.25.1
+ARG GO_VERSION=1.26.1
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBERNETES_VERSION=v1.35.3
@@ -38,9 +38,9 @@ ARG KUBERNETES_VERSION=v1.35.3
 ARG GITHUB_CLI_VERSION=v2.89.0
 
 # renovate: datasource=github-releases depName=gokcehan/lf
-ARG LF_VERSION=r32
+ARG LF_VERSION=r41
 
-ARG CRANE_VERSION=v0.20.7
+ARG CRANE_VERSION=v0.21.3
 
 RUN curl -LO https://github.com/cli/cli/releases/download/${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
     dnf install -y gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
@@ -81,7 +81,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.113.0
+ARG VSCODE_VERSION=1.114.0
 
 USER root
 
@@ -102,7 +102,7 @@ FROM fedbox as fedbox-codeserver
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=coder/code-server
-ARG CODE_SERVER_VERSION=v4.112.0
+ARG CODE_SERVER_VERSION=v4.113.0
 
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \

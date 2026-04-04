@@ -65,7 +65,7 @@ LABEL org.opencontainers.image.description="Image for AI/ML development with CUD
 LABEL org.opencontainers.image.title="CUDA 13.2.0 Optimized"
 LABEL maintainer="Simon Merschjohann"
 
-ARG CODE_SERVER_VERSION=v4.112.0
+ARG CODE_SERVER_VERSION=v4.114.0
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 RUN dnf install epel-release -y && crb enable && \
@@ -73,6 +73,7 @@ RUN dnf install epel-release -y && crb enable && \
     dnf install -y which gperftools-libs python3 python3-pip git acl xz zstd openssl bzip2 procps-ng sudo mesa-libGLU btop ffmpeg aria2 && \
     curl -L https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm -o /tmp/code.rpm && \
     dnf install -y /tmp/code.rpm && rm /tmp/code.rpm && \
+    dnf install -y https://downloads.rclone.org/v1.73.3/rclone-v1.73.3-linux-amd64.rpm && \
     dnf clean all && rm -rf /var/cache/dnf/* && \
     ln -s /usr/bin/python3 /usr/bin/python
 

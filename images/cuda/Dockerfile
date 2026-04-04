@@ -65,7 +65,7 @@ LABEL org.opencontainers.image.description="Image for AI/ML development with CUD
 LABEL org.opencontainers.image.title="CUDA 13.2.0 Optimized"
 LABEL maintainer="Simon Merschjohann"
 
-ARG CODE_SERVER_VERSION=v4.112.0
+ARG CODE_SERVER_VERSION=v4.114.0
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 RUN dnf install epel-release -y && crb enable && \

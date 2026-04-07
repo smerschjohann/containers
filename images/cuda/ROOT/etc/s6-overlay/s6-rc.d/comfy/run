@@ -11,12 +11,11 @@ case "${COMFYUI_ENABLED:-1}" in
 esac
 
 cd /opt/workspace-internal/ComfyUI/
-if [ -d /workspace/basedir ]; then
-    echo "Directory /workspace/basedir exists."
-else
-    echo "Directory /workspace/basedir does not exist. Creating it."
-    mkdir -p /workspace/basedir
-    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/ /workspace/basedir/
+
+mkdir -p /workspace/basedir
+if [ ! -d /workspace/basedir/custom_nodes ]; then
+    echo "custom_nodes directory does not exist in /workspace/basedir. Copying from /opt/workspace-internal/ComfyUI/custom_nodes."
+    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/. /workspace/basedir/
 fi
 
 export LD_PRELOAD=libtcmalloc_minimal.so.4

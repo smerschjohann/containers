@@ -15,6 +15,8 @@ Optional environment variables:
 - `COMFYUI_VRAM_FLAG` to override VRAM mode, e.g. `--normalvram`, `--lowvram`, `--novram`.
 - `COMFYUI_ARGS` to append arbitrary ComfyUI CLI args.
 - `PYTORCH_CUDA_ALLOC_CONF` to override allocator tuning.
+- `PROVISION_SCRIPT` runs as blocking oneshot before `comfy` and `code-server` start.
+- `ASYNC_PROVISION_SCRIPT` runs as separate oneshot and can execute in parallel during startup.
 
 Example:
 

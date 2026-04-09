@@ -2,7 +2,7 @@ FROM docker.io/library/fedora:43@sha256:781b7642e8bf256e9cf75d2aa58d86f5cc695fd2
 ARG TARGETARCH
 
 RUN dnf remove -y shadow-utils && dnf install -y \
-        procps-ng moreutils btop git wget \
+        procps-ng moreutils btop git wget rg \
         jq vim quilt fzf zsh age gdu \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \
@@ -10,7 +10,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         just nodejs sqlite3 \
         podman podman-compose podman-docker buildah \
         libicu make \
-        shadow-utils mkfs.ext4 iproute && \
+        shadow-utils mkfs.ext4 iproute lsof && \
     dnf clean all && rm -rf /var/cache/yum
 
 COPY --chown=0:0 system_files /
@@ -107,9 +107,10 @@ ARG CODE_SERVER_VERSION=v4.115.0
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \
     dnf install -y code-server*.rpm && rm code-server*.rpm && \
-    dnf install -y openssh-server && \
+    dnf install -y openssh-server gcc && \
     dnf clean all && \
   	rm -rf /var/cache/yum
+RUN sudo npm install -g @google/gemini-cli
 RUN chmod a+x /usr/bin/*
 USER coder
 EXPOSE 8080/tcp

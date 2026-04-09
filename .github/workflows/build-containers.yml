@@ -6,6 +6,12 @@ permissions:
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      skip_diff_check:
+        description: 'Diff-Check ignorieren und alle Images bauen'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -26,6 +32,7 @@ jobs:
     env:
       PLATFORM: ${{ matrix.platform }}
       ARCH: ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+      SKIP_DIFF_CHECK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_diff_check == 'true' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,74 +43,60 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
         run: |
-          runcmd=/bin/bash
-          #if [[ $PLATFORM == 'linux/amd64' ]]; then
-          #  mkdir -p ../containers
-          #  runcmd="podman run -e=REGISTRY_REPO -e=TAG -e=PLATFORM -e=ARCH -e=username -e=password -e=registry -i \
-          #                -u 0  --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-          #                --net=host --privileged --device /dev/fuse:rw \
-          #                -v ../containers:/var/lib/containers:Z \
-          #                -v $PWD:/root:ro \
-          #                ghcr.io/smerschjohann/containers/fedbox:latest /bin/bash"
-          #fi
-
           # prepare per-arch digest file
           rm -f /tmp/digests-${ARCH}.json || true
           touch /tmp/digests-${ARCH}.json
 
-          $runcmd << 'EOF'
-            #cd /root
-            echo -n $password | buildah login -u $username --password-stdin $registry 
-            tasks=$(jq -c '.[]' images/tasks.json)
-            for task in $tasks; do
-              name=$(echo $task | jq -r '.name')
-              dir=$(echo $task | jq -r '.dir')
-              target=$(echo $task | jq -r '.target')
-              forcecache=$(echo $task | jq -r '.cache')
-              nolayers=$(echo $task | jq -r '.nolayers')
-              image_name="$REGISTRY_REPO/$name"
-              
-              if git diff --quiet --exit-code HEAD^ HEAD $dir; then
-                echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
-                continue
-              fi
+          echo -n $password | buildah login -u $username --password-stdin $registry 
+          tasks=$(jq -c '.[]' images/tasks.json)
+          for task in $tasks; do
+            name=$(echo $task | jq -r '.name')
+            dir=$(echo $task | jq -r '.dir')
+            target=$(echo $task | jq -r '.target')
+            forcecache=$(echo $task | jq -r '.cache')
+            nolayers=$(echo $task | jq -r '.nolayers')
+            image_name="$REGISTRY_REPO/$name"
+            
+            if [[ "$SKIP_DIFF_CHECK" != "true" ]] && git diff --quiet --exit-code HEAD^ HEAD $dir; then
+              echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
+              continue
+            fi
 
-              layers="--layers"
-              if [[ $nolayers == "true" ]]; then
-                layers=""
-              fi
+            layers="--layers"
+            if [[ $nolayers == "true" ]]; then
+              layers=""
+            fi
 
-              cacheparams=""
-              if [[ "$forcecache" == "true" ]]; then
-               cacheparams="--cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
-              fi
+            cacheparams=""
+            if [[ "$forcecache" == "true" ]]; then
+              cacheparams="--cache-from $REGISTRY_REPO/cache --cache-to $REGISTRY_REPO/cache"
+            fi
 
-              buildah bud \
-                --platform $PLATFORM \
-                -f $dir/Dockerfile \
-                --format docker \
-                --tls-verify=true \
-                -t $image_name:$ARCH-$TAG \
-                --target $target \
-                $layers $cacheparams \
-                $dir
-              
-              # use --digestfile to capture digest directly from buildah push
-              digest_file="/tmp/digest_${name}_${ARCH}.txt"
-              buildah push --digestfile="$digest_file" $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
-              
-              digest=""
-              if [ -f "$digest_file" ]; then
-                digest=$(cat "$digest_file")
-                echo "Erfasster Digest für $image_name:$ARCH-$TAG: $digest"
-              else
-                echo "Warnung: Digest-Datei nicht gefunden für $image_name:$ARCH-$TAG"
-              fi
+            buildah bud \
+              --platform $PLATFORM \
+              -f $dir/Dockerfile \
+              --format docker \
+              --tls-verify=true \
+              -t $image_name:$ARCH-$TAG \
+              --target $target \
+              $layers $cacheparams \
+              $dir
+            
+            # use --digestfile to capture digest directly from buildah push
+            digest_file="/tmp/digest_${name}_${ARCH}.txt"
+            buildah push --digestfile="$digest_file" $image_name:$ARCH-$TAG docker://$image_name:$ARCH-$TAG
+            
+            digest=""
+            if [ -f "$digest_file" ]; then
+              digest=$(cat "$digest_file")
+              echo "Erfasster Digest für $image_name:$ARCH-$TAG: $digest"
+            else
+              echo "Warnung: Digest-Datei nicht gefunden für $image_name:$ARCH-$TAG"
+            fi
 
-              # store as newline-delimited JSON for easier merging later
-              echo "{\"image\":\"$image_name\",\"tag\":\"$ARCH-$TAG\",\"digest\":\"$digest\"}" >> /tmp/digests-${ARCH}.json
-            done
-          EOF
+            # store as newline-delimited JSON for easier merging later
+            echo "{\"image\":\"$image_name\",\"tag\":\"$ARCH-$TAG\",\"digest\":\"$digest\"}" >> /tmp/digests-${ARCH}.json
+          done
       - name: Upload digests
         uses: actions/upload-artifact@v7
         with:
@@ -113,6 +106,8 @@ jobs:
   merge:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      SKIP_DIFF_CHECK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_diff_check == 'true' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -154,7 +149,7 @@ jobs:
             fi
             final_manifest="$image_name:${tag:-$TAG}"
 
-            if git diff --quiet --exit-code HEAD^..HEAD $dir; then
+            if [[ "$SKIP_DIFF_CHECK" != "true" ]] && git diff --quiet --exit-code HEAD^..HEAD $dir; then
               echo "Keine Änderungen in $dir, überspringe den Build-Prozess für $name"
               continue
             fi

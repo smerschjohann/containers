@@ -65,8 +65,8 @@ LABEL org.opencontainers.image.description="Image for AI/ML development with CUD
 LABEL org.opencontainers.image.title="CUDA 13.2.0 Optimized"
 LABEL maintainer="Simon Merschjohann"
 
-# renovate: datasource=github-releases depName=microsoft/vscode
-ARG CODE_SERVER_VERSION=v4.115.0
+# renovate: datasource=github-releases depName=coder/code-server
+ARG CODE_SERVER_VERSION=v4.117.0
 
 # renovate: datasource=github-releases depName=just-containers/s6-overlay
 ARG S6_OVERLAY_VERSION=v3.2.0.2

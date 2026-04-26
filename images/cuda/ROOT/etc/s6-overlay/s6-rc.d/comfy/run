@@ -15,7 +15,7 @@ cd /opt/workspace-internal/ComfyUI/
 mkdir -p /workspace/basedir
 if [ ! -d /workspace/basedir/custom_nodes ]; then
     echo "custom_nodes directory does not exist in /workspace/basedir. Copying from /opt/workspace-internal/ComfyUI/custom_nodes."
-    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/. /workspace/basedir/
+    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/ /workspace/basedir/
 fi
 
 export LD_PRELOAD=libtcmalloc_minimal.so.4

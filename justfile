@@ -2,7 +2,7 @@ set export
 TAG := "dev"
 
 update-digests:
-    podman manifest inspect registry.fedoraproject.org/fedora:38 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
+    podman manifest inspect registry.fedoraproject.org/fedora:44 | jq -r '.manifests | .[] | select(.platform.architecture == "arm64" or .platform.architecture == "amd64") | "digest_\(.platform.architecture)=\(.digest)"' | sort > images/fedbox/builddigests
 
 build-fedbox $platform=arch():
     #!/bin/bash

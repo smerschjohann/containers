@@ -1,6 +1,12 @@
 #!/bin/bash
 
-if [ -n "$ASYNC_PROVISION_SCRIPT" ]; then
+# Check if async provision script is mounted as a volume
+if [ -f "/provision/async_provision_script.sh" ]; then
+    echo "Running async provision script from volume mount"
+    chmod +x /provision/async_provision_script.sh
+    /provision/async_provision_script.sh
+# Otherwise, check if an async provision script URL is configured
+elif [ -n "$ASYNC_PROVISION_SCRIPT" ]; then
     echo "Running configured provision script"
     CURL_OPTS=(-kfsSL)
     if [ -n "$ASYNC_PROVISION_SCRIPT_TOKEN" ]; then

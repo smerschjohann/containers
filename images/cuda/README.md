@@ -18,6 +18,28 @@ Optional environment variables:
 - `PROVISION_SCRIPT` runs as blocking oneshot before `comfy` and `code-server` start.
 - `ASYNC_PROVISION_SCRIPT` runs as separate oneshot and can execute in parallel during startup.
 
+Provision scripts:
+
+Provision scripts can be provided in two ways:
+
+1. **Via environment variable (URL):**
+   - `PROVISION_SCRIPT=http://download.link` for blocking provisioning
+   - `ASYNC_PROVISION_SCRIPT=http://download.link` for parallel provisioning
+   - Optional: `PROVISION_SCRIPT_TOKEN` or `ASYNC_PROVISION_SCRIPT_TOKEN` for bearer token authentication
+
+2. **Via volume mount:**
+   - Mount `provision_script.sh` to `/provision/provision_script.sh` for blocking provisioning
+   - Mount `async_provision_script.sh` to `/provision/async_provision_script.sh` for parallel provisioning
+
+Example with volume mounts:
+
+```bash
+podman run --rm -it -p 8443:8443 --userns=keep-id --device nvidia.com/gpu=all --security-opt=label=disable \
+	-v ./my_provision.sh:/provision/provision_script.sh:ro \
+	-e IP_DOMAIN=nip.io \
+	--name mycuda cuda
+```
+
 Example:
 
 ```bash

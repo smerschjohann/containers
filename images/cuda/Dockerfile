@@ -90,6 +90,19 @@ RUN curl -L https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45
     chmod +x /usr/local/bin/dufs && \
     rm /tmp/dufs.tar.gz
 
+# Install ocige
+RUN curl -L https://github.com/smerschjohann/ocige/releases/download/v0.1.1/ocige_linux_amd64.tar.gz -o /tmp/ocige.tar.gz && \
+    tar -xzf /tmp/ocige.tar.gz -C /tmp/ && \
+    mv /tmp/ocige /usr/local/bin/ocige && \
+    chmod +x /usr/local/bin/ocige && \
+    rm /tmp/ocige.tar.gz
+
+# Install chisel
+RUN curl -L https://github.com/jpillora/chisel/releases/download/v1.11.5/chisel_1.11.5_linux_amd64.gz -o /tmp/chisel.gz && \
+    gunzip /tmp/chisel.gz && \
+    mv /tmp/chisel /usr/local/bin/chisel && \
+    chmod +x /usr/local/bin/chisel
+
 # Setup User and Workspace
 RUN groupadd -g 1000 user && \
     useradd -ms /bin/bash user -u 1000 -g 1000 && \

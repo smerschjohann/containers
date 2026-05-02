@@ -5,6 +5,14 @@
         "tag": "latest",
         "dockerfile": "Dockerfile",
         "target": "cuda",
-        "nocache": true
+        "nocache": false
+    },
+    {
+        "name": "cuda-aitoolkit",
+        "dir": "./images/cuda",
+        "tag": "aitoolkit",
+        "dockerfile": "Dockerfile",
+        "target": "cuda-aitoolkit",
+        "nocache": false
     }
 ]

@@ -133,3 +133,55 @@ ADD --chown=user:user ROOT/ /
 ADD --chown=user:user Caddyfile.tmpl landing.html /etc/caddy/
 
 ENTRYPOINT ["/init"]
+
+# STAGE 4: AI Toolkit Builder (separate venv for additive image)
+FROM docker.io/nvidia/cuda:13.2.1-devel-rockylinux10@sha256:6e66f5288ea88c69ec31030610c2afaeb3ed7a693004fd79d08fe43fa6d94d55 AS aitoolkit-builder
+
+ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 12.0"
+ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.25.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG AI_TOOLKIT_REF=main
+
+RUN dnf install epel-release -y && crb enable && \
+    dnf install -y python3 python3-pip python3-devel git gcc-c++ make cmake which nodejs npm && \
+    ln -s /usr/bin/python3 /usr/bin/python
+
+RUN mkdir -p /venv /opt/workspace-internal && \
+    python -m venv /venv/aitoolkit && \
+    /venv/aitoolkit/bin/pip install --no-cache-dir --upgrade pip wheel
+
+RUN source /venv/aitoolkit/bin/activate && \
+    pip install --no-cache-dir "${TORCH_WHEEL_URL}" "${TORCHVISION_WHEEL_URL}" "${TORCHAUDIO_WHEEL_URL}"
+
+RUN source /venv/aitoolkit/bin/activate && \
+    git clone https://github.com/ostris/ai-toolkit.git /opt/workspace-internal/ai-toolkit && \
+    cd /opt/workspace-internal/ai-toolkit && \
+    git checkout "${AI_TOOLKIT_REF}" && \
+    pip install --no-cache-dir -r requirements.txt
+
+RUN cd /opt/workspace-internal/ai-toolkit/ui && \
+    npm install && \
+    npm run build && \
+    npm run update_db
+
+# STAGE 5: CUDA + AI Toolkit Add-on
+FROM cuda AS cuda-aitoolkit
+
+USER root
+
+RUN dnf install epel-release -y && crb enable && \
+    dnf install -y nodejs npm && \
+    dnf clean all && rm -rf /var/cache/dnf/*
+
+COPY --from=aitoolkit-builder --chown=1000:1000 /venv/aitoolkit /venv/aitoolkit
+COPY --from=aitoolkit-builder --chown=1000:1000 /opt/workspace-internal/ai-toolkit /opt/workspace-internal/ai-toolkit
+
+ADD --chown=user:user ROOT-aitoolkit/ /
+ADD --chown=user:user landing.aitoolkit.html /etc/caddy/landing.html
+
+ENV PATH=/venv/aitoolkit/bin:${PATH}
+
+USER user
+
+ENTRYPOINT ["/init"]

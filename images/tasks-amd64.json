@@ -6,5 +6,13 @@
         "dockerfile": "Dockerfile",
         "target": "cuda",
         "nocache": true
+    },
+    {
+        "name": "cuda-aitoolkit",
+        "dir": "./images/cuda",
+        "tag": "aitoolkit",
+        "dockerfile": "Dockerfile",
+        "target": "cuda-aitoolkit",
+        "nocache": true
     }
 ]

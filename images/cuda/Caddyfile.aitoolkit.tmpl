@@ -25,6 +25,11 @@
         reverse_proxy localhost:8080
     }
 
+    @comfyui vars {service} comfy
+    handle @comfyui {
+        reverse_proxy localhost:8188
+    }
+
     @aitoolkit vars {service} aitoolkit
     handle @aitoolkit {
         reverse_proxy localhost:8675
@@ -37,7 +42,7 @@
 
     handle {
         root * /etc/caddy
-        rewrite * /landing.html
+        rewrite * /landing.aitoolkit.html
         file_server
     }
 

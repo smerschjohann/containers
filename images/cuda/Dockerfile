@@ -71,11 +71,14 @@ ARG CODE_SERVER_VERSION=v4.117.0
 # renovate: datasource=github-releases depName=just-containers/s6-overlay
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
+# renovate: datasource=github-releases depName=rclone/rclone
+ARG RCLONE_VERSION=v1.74.0
+
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \
     dnf install -y which gperftools-libs python3 python3-pip git acl xz zstd openssl bzip2 procps-ng sudo mesa-libGLU btop ffmpeg aria2 && \
     dnf install -y https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-amd64.rpm && \
-    dnf install -y https://downloads.rclone.org/v1.73.3/rclone-v1.73.3-linux-amd64.rpm && \
+    dnf install -y https://downloads.rclone.org/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.rpm && \
     dnf clean all && rm -rf /var/cache/dnf/* && \
     ln -s /usr/bin/python3 /usr/bin/python
 
@@ -83,22 +86,26 @@ RUN dnf install epel-release -y && crb enable && \
 RUN curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz | tar -C / -Jxpf - && \
     curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz | tar -C / -Jxpf -
 
-# Install dufs
-RUN curl -L https://github.com/sigoden/dufs/releases/download/v0.45.0/dufs-v0.45.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/dufs.tar.gz && \
+# renovate: datasource=github-releases depName=sigoden/dufs
+ARG DUFS_VERSION=v0.45.0
+
+# renovate: datasource=github-releases depName=smerschjohann/ocige
+ARG OCIGE_VERSION=v0.1.2
+
+# renovate: datasource=github-releases depName=jpillora/chisel
+ARG CHISEL_VERSION=v1.11.5
+
+RUN curl -L https://github.com/sigoden/dufs/releases/download/${DUFS_VERSION}/dufs-${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/dufs.tar.gz && \
     tar -xzf /tmp/dufs.tar.gz -C /tmp/ && \
     mv /tmp/dufs /usr/local/bin/dufs && \
     chmod +x /usr/local/bin/dufs && \
-    rm /tmp/dufs.tar.gz
-
-# Install ocige
-RUN curl -L https://github.com/smerschjohann/ocige/releases/download/v0.1.1/ocige_linux_amd64.tar.gz -o /tmp/ocige.tar.gz && \
+    rm /tmp/dufs.tar.gz && \
+    curl -L https://github.com/smerschjohann/ocige/releases/download/${OCIGE_VERSION}/ocige_linux_amd64.tar.gz -o /tmp/ocige.tar.gz && \
     tar -xzf /tmp/ocige.tar.gz -C /tmp/ && \
     mv /tmp/ocige /usr/local/bin/ocige && \
     chmod +x /usr/local/bin/ocige && \
-    rm /tmp/ocige.tar.gz
-
-# Install chisel
-RUN curl -L https://github.com/jpillora/chisel/releases/download/v1.11.5/chisel_1.11.5_linux_amd64.gz -o /tmp/chisel.gz && \
+    rm /tmp/ocige.tar.gz && \
+    curl -L https://github.com/jpillora/chisel/releases/download/${CHISEL_VERSION}/chisel_${CHISEL_VERSION#v}_linux_amd64.gz -o /tmp/chisel.gz && \
     gunzip /tmp/chisel.gz && \
     mv /tmp/chisel /usr/local/bin/chisel && \
     chmod +x /usr/local/bin/chisel

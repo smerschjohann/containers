@@ -30,6 +30,11 @@
         reverse_proxy localhost:8188
     }
 
+    @aitoolkit vars {service} aitoolkit
+    handle @aitoolkit {
+        reverse_proxy localhost:8675
+    }
+
     @port vars_regexp portm {service} p(\d+)
     handle @port {
         reverse_proxy localhost:{re.portm.1}

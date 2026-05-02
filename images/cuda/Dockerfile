@@ -178,7 +178,7 @@ COPY --from=aitoolkit-builder --chown=1000:1000 /venv/aitoolkit /venv/aitoolkit
 COPY --from=aitoolkit-builder --chown=1000:1000 /opt/workspace-internal/ai-toolkit /opt/workspace-internal/ai-toolkit
 
 ADD --chown=user:user ROOT-aitoolkit/ /
-ADD --chown=user:user Caddyfile.aitoolkit.tmpl landing.aitoolkit.html /etc/caddy/
+ADD --chown=user:user landing.aitoolkit.html /etc/caddy/landing.html
 
 ENV PATH=/venv/aitoolkit/bin:${PATH}
 

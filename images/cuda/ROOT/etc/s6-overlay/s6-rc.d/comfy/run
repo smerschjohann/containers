@@ -6,7 +6,12 @@ set -e
 case "${COMFYUI_ENABLED:-1}" in
     0|false|False|FALSE|no|No|NO|off|Off|OFF)
         echo "ComfyUI disabled via COMFYUI_ENABLED=${COMFYUI_ENABLED}"
-    exec /usr/bin/sleep infinity
+        COMFYUI_START_FLAG="${COMFYUI_START_FLAG:-/workspace/.start-comfyui}"
+        echo "Waiting for start flag: ${COMFYUI_START_FLAG}"
+        while [ ! -f "${COMFYUI_START_FLAG}" ]; do
+            /usr/bin/sleep 5
+        done
+        echo "Start flag detected, launching ComfyUI"
         ;;
 esac
 

@@ -1,0 +1,12 @@
+#!/command/with-contenv sh
+set -e
+
+case "${AITOOLKIT_ENABLED:-1}" in
+    0|false|False|FALSE|no|No|NO|off|Off|OFF)
+        echo "AI-Toolkit UI disabled via AITOOLKIT_ENABLED=${AITOOLKIT_ENABLED}"
+        exec /usr/bin/sleep infinity
+        ;;
+esac
+
+cd /opt/workspace-internal/ai-toolkit/ui
+exec npm run start

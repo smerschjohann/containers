@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Toolkit Container</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #58a6ff;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .cards {
+      display: flex;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.5rem 1.75rem;
+      text-decoration: none;
+      color: inherit;
+      width: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover {
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.12);
+    }
+    .card-title { font-size: 1rem; font-weight: 600; color: #f0f6fc; }
+    .card-desc  { font-size: 0.8rem; color: #8b949e; }
+    .port-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.25rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      width: 100%;
+      max-width: 380px;
+    }
+    .port-box label {
+      font-size: 0.85rem;
+      color: #8b949e;
+      font-weight: 500;
+    }
+    .port-row { display: flex; gap: 0.5rem; }
+    input[type=number] {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.95rem;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    input[type=number]:focus { border-color: #58a6ff; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    button {
+      background: #1f6feb;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    button:hover { background: #388bfd; }
+  </style>
+</head>
+<body>
+  <h1>AI-Toolkit Container</h1>
+
+  <div class="cards">
+    <a class="card" id="link-code" href="#">
+      <span class="card-title">Code Server</span>
+      <span class="card-desc">VS Code in browser</span>
+    </a>
+    <a class="card" id="link-aitoolkit" href="#">
+      <span class="card-title">AI-Toolkit</span>
+      <span class="card-desc">Model training UI</span>
+    </a>
+    <a class="card" id="link-dufs" href="#">
+      <span class="card-title">DUFS</span>
+      <span class="card-desc">Filesystem web UI (dufs)</span>
+    </a>
+  </div>
+
+  <div class="port-box">
+    <label for="port-input">Open external port</label>
+    <div class="port-row">
+      <input type="number" id="port-input" placeholder="e.g. 8888" min="1" max="65535" />
+      <button onclick="goToPort()">Open</button>
+    </div>
+  </div>
+
+  <script>
+    function serviceUrl(prefix) {
+      const portSuffix = window.location.port ? ":" + window.location.port : "";
+      return window.location.protocol + "//" + prefix + "-" + window.location.hostname + portSuffix;
+    }
+
+    document.getElementById("link-code").href      = serviceUrl("code");
+    document.getElementById("link-aitoolkit").href = serviceUrl("aitoolkit");
+    document.getElementById("link-dufs").href      = serviceUrl("dufs");
+
+    document.getElementById("port-input").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") goToPort();
+    });
+
+    function goToPort() {
+      const n = parseInt(document.getElementById("port-input").value.trim(), 10);
+      if (!n || n < 1 || n > 65535) return;
+      const portSuffix = window.location.port ? ":" + window.location.port : "";
+      window.location.href = window.location.protocol + "//p" + n + "-" + window.location.hostname + portSuffix;
+    }
+  </script>
+</body>
+</html>

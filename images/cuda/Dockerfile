@@ -87,7 +87,7 @@ RUN curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/$
     curl -Lo - https://github.com/just-containers/s6-overlay/releases/download/${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz | tar -C / -Jxpf -
 
 # renovate: datasource=github-releases depName=sigoden/dufs
-ARG DUFS_VERSION=v0.45.0
+ARG DUFS_VERSION=v0.46.0
 
 # renovate: datasource=github-releases depName=smerschjohann/ocige
 ARG OCIGE_VERSION=v0.1.2

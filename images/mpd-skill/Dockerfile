@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.7-1778562320@sha256:12db9874bd753eb98b1ab3d840e75de5d6842ac0604fbd68c012adefe97140be as skill
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8-1777460003@sha256:24650313873554b6ba16c1a1b6b9f9142604f6ab735113e1695faf2dd07fdede as skill
 
 RUN microdnf install -y python3 pip
 

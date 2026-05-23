@@ -34,18 +34,10 @@ ARG GO_VERSION=1.26.1
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBERNETES_VERSION=v1.36.1
 
-# renovate: datasource=github-releases depName=cli/cli
-ARG GITHUB_CLI_VERSION=v2.92.0
-
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r41
 
 ARG CRANE_VERSION=v0.21.3
-
-RUN curl -LO https://github.com/cli/cli/releases/download/${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
-    dnf install -y gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
-    rm gh_${GITHUB_CLI_VERSION#v}_linux_${TARGETARCH}.rpm && \
-    dnf clean all && rm -rf /var/cache/yum
 
 RUN set -ex -o pipefail && curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBERNETES_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     curl -sL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" | tar zxvf - -C /usr/local/bin --strip-components=1 && \
@@ -110,8 +102,13 @@ RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVE
     dnf install -y openssh-server gcc && \
     dnf clean all && \
   	rm -rf /var/cache/yum
-RUN sudo npm install -g @google/gemini-cli
 RUN chmod a+x /usr/bin/*
+
+# hopefully temporary fix for iPad bug: https://github.com/coder/code-server/issues/7801
+ADD code-server-issue-7801.patch /tmp/code-server-issue-7801.patch
+RUN patch /usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench/workbench.js < /tmp/code-server-issue-7801.patch; \
+    rm /tmp/code-server-issue-7801.patch
+
 USER coder
 EXPOSE 8080/tcp
 CMD [ "/usr/bin/code-server" ]

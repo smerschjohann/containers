@@ -72,7 +72,7 @@ ARG CODE_SERVER_VERSION=v4.121.0
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 # renovate: datasource=github-releases depName=rclone/rclone
-ARG RCLONE_VERSION=v1.74.1
+ARG RCLONE_VERSION=v1.74.2
 
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \

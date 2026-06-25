@@ -1,4 +1,4 @@
-FROM rockylinux/rockylinux:10-minimal@sha256:cfa2812ec7151c2be393cfe46e50cf59426373d12f03f4ffbdd56becb8195a65 as squid
+FROM rockylinux/rockylinux:10-minimal@sha256:bc5c1e7a2ec7f4bcef1e51c7f0ebb2d43f05409e0108cdd34f693921d0604360 as squid
 RUN microdnf -y install squid && \
     microdnf clean all
 

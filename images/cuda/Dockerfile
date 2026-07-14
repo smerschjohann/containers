@@ -93,7 +93,7 @@ ARG DUFS_VERSION=v0.46.0
 ARG OCIGE_VERSION=v0.1.2
 
 # renovate: datasource=github-releases depName=jpillora/chisel
-ARG CHISEL_VERSION=v1.11.7
+ARG CHISEL_VERSION=v1.11.8
 
 RUN curl -L https://github.com/sigoden/dufs/releases/download/${DUFS_VERSION}/dufs-${DUFS_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/dufs.tar.gz && \
     tar -xzf /tmp/dufs.tar.gz -C /tmp/ && \

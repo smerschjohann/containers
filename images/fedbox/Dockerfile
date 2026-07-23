@@ -32,7 +32,7 @@ ARG VALS_VERSION=v0.44.5
 ARG GO_VERSION=1.26.1
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBERNETES_VERSION=v1.36.2
+ARG KUBERNETES_VERSION=v1.36.3
 
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r41

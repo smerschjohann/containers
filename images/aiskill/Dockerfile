@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:alpine@sha256:70b46548e42db77e0966aaf3619fd068734dc6c77584d526b91126504fd95816 AS builder
+FROM docker.io/library/golang:alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS builder
 WORKDIR /app
 
 RUN apk --update add --no-cache ca-certificates openssl git tzdata && update-ca-certificates

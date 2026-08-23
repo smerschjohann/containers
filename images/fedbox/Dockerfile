@@ -8,7 +8,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \
         just nodejs sqlite3 \
-        podman podman-compose podman-docker buildah \
+        podman podman-compose podman-docker buildah catatonit \
         libicu make \
         shadow-utils mkfs.ext4 iproute lsof && \
     dnf clean all && rm -rf /var/cache/yum
@@ -65,6 +65,8 @@ RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
 
 VOLUME [ "/home/coder" ]
 ENV HOME=/home/coder
+# PID 1: reappt Zombies (Hook-/sshd-/Terminal-Kinder) und leitet Signale weiter
+ENTRYPOINT [ "/usr/libexec/podman/catatonit" ]
 CMD [ "/usr/bin/zsh" ]
 
 USER coder

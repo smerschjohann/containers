@@ -9,7 +9,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         bash-completion tmux \
         just nodejs sqlite3 \
         podman podman-compose podman-docker buildah catatonit \
-        libicu make \
+        libicu make zig \
         shadow-utils mkfs.ext4 bubblewrap socat iproute lsof && \
     dnf clean all && rm -rf /var/cache/yum
 

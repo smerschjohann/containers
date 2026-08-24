@@ -10,7 +10,7 @@ RUN dnf remove -y shadow-utils && dnf install -y \
         just nodejs sqlite3 \
         podman podman-compose podman-docker buildah catatonit \
         libicu make \
-        shadow-utils mkfs.ext4 iproute lsof && \
+        shadow-utils mkfs.ext4 bubblewrap socat iproute lsof && \
     dnf clean all && rm -rf /var/cache/yum
 
 COPY --chown=0:0 system_files /
@@ -29,7 +29,7 @@ ARG HELMFILE_VERSION=v1.7.4
 ARG VALS_VERSION=v0.46.0
 
 # Install Go from official tarball instead of distro package
-ARG GO_VERSION=1.26.1
+ARG GO_VERSION=1.27.0
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBERNETES_VERSION=v1.36.4

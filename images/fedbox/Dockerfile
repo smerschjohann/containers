@@ -75,7 +75,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.134.0
+ARG VSCODE_VERSION=1.135.0
 
 USER root
 
@@ -96,7 +96,7 @@ FROM fedbox as fedbox-codeserver
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=coder/code-server
-ARG CODE_SERVER_VERSION=v4.134.0
+ARG CODE_SERVER_VERSION=v4.135.0
 
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \

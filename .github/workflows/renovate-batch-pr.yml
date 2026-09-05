@@ -12,7 +12,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  workflows: write
 
 jobs:
   batch-renovate-prs:
@@ -26,11 +25,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Create or update batch Renovate PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           BATCH_BRANCH: renovate-batch
         shell: bash

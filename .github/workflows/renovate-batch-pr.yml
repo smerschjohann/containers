@@ -25,12 +25,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Create or update batch Renovate PR
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           BATCH_BRANCH: renovate-batch
         shell: bash
@@ -57,11 +56,20 @@ jobs:
           echo "Found ${#pr_numbers[@]} Renovate PR(s): ${pr_numbers[*]}"
 
           merged_prs=()
-          skipped_prs=()
+          conflict_prs=()
+          workflow_prs=()
 
           for pr_number in "${pr_numbers[@]}"; do
-            echo "Attempting to merge Renovate PR #${pr_number} into ${BATCH_BRANCH}..."
+            echo "Processing Renovate PR #${pr_number}..."
             git fetch origin "pull/${pr_number}/head:renovate-pr-${pr_number}"
+
+            # GitHub Actions GITHUB_TOKEN is restricted from pushing .github/workflows changes
+            if git diff --name-only "origin/$BASE_BRANCH...renovate-pr-${pr_number}" | grep -q '^\.github/workflows/'; then
+              echo "PR #${pr_number} modifies workflow files in .github/workflows/. Skipping (GITHUB_TOKEN cannot push workflow changes)."
+              workflow_prs+=("$pr_number")
+              git branch -D "renovate-pr-${pr_number}" || true
+              continue
+            fi
 
             if git merge --no-edit --no-ff "renovate-pr-${pr_number}"; then
               echo "Successfully merged PR #${pr_number}"
@@ -69,8 +77,9 @@ jobs:
             else
               echo "Merge conflict in PR #${pr_number}. Aborting merge and skipping."
               git merge --abort || true
-              skipped_prs+=("$pr_number")
+              conflict_prs+=("$pr_number")
             fi
+            git branch -D "renovate-pr-${pr_number}" || true
           done
 
           if [ "${#merged_prs[@]}" -eq 0 ]; then
@@ -100,10 +109,18 @@ jobs:
             else
               echo "None"
             fi
-            if [ "${#skipped_prs[@]}" -gt 0 ]; then
+            if [ "${#workflow_prs[@]}" -gt 0 ]; then
+              echo ""
+              echo "## Skipped PRs (Modifies .github/workflows - merge manually)"
+              for num in "${workflow_prs[@]}"; do
+                title=$(echo "$open_prs_json" | jq -r --argjson n "$num" '.[] | select(.number == $n) | .title')
+                echo "- #${num}: ${title}"
+              done
+            fi
+            if [ "${#conflict_prs[@]}" -gt 0 ]; then
               echo ""
               echo "## Skipped PRs (Merge Conflicts)"
-              for num in "${skipped_prs[@]}"; do
+              for num in "${conflict_prs[@]}"; do
                 title=$(echo "$open_prs_json" | jq -r --argjson n "$num" '.[] | select(.number == $n) | .title')
                 echo "- #${num}: ${title}"
               done

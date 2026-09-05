@@ -1,5 +1,5 @@
 # STAGE 1: Go Tools for Certificate Generation
-FROM docker.io/library/golang:1.27.0-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS go-build
+FROM docker.io/library/golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS go-build
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
@@ -72,7 +72,7 @@ ARG CODE_SERVER_VERSION=v4.135.0
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 # renovate: datasource=github-releases depName=rclone/rclone
-ARG RCLONE_VERSION=v1.75.0
+ARG RCLONE_VERSION=v1.75.1
 
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \

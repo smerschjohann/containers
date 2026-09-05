@@ -43,26 +43,39 @@ jobs:
           git checkout -B "$BATCH_BRANCH" "origin/$BASE_BRANCH"
 
           # Match both Renovate App ("app/renovate"), bot user ("renovate[bot]"), or branch prefix ("renovate/")
-          mapfile -t pr_numbers < <(gh pr list --state open --limit 100 --json number,author,headRefName \
-            --jq '.[] | select((.author.login | test("renovate")) or (.headRefName | startswith("renovate/"))) | select(.headRefName != "'"$BATCH_BRANCH"'") | .number')
+          open_prs_json=$(gh pr list --state open --limit 100 --json number,title,author,headRefName \
+            --jq '[.[] | select((.author.login | test("renovate")) or (.headRefName | startswith("renovate/"))) | select(.headRefName != "'"$BATCH_BRANCH"'")]')
+
+          mapfile -t pr_numbers < <(echo "$open_prs_json" | jq -r '.[].number')
 
           if [ "${#pr_numbers[@]}" -eq 0 ]; then
             echo "No open Renovate PRs found. Nothing to batch."
             exit 0
           fi
 
-          echo "Found ${#pr_numbers[@]} Renovate PR(s) to merge: ${pr_numbers[*]}"
+          echo "Found ${#pr_numbers[@]} Renovate PR(s): ${pr_numbers[*]}"
+
+          merged_prs=()
+          skipped_prs=()
 
           for pr_number in "${pr_numbers[@]}"; do
-            echo "Merging Renovate PR #${pr_number} into ${BATCH_BRANCH}"
+            echo "Attempting to merge Renovate PR #${pr_number} into ${BATCH_BRANCH}..."
             git fetch origin "pull/${pr_number}/head:renovate-pr-${pr_number}"
 
-            if ! git merge --no-edit --no-ff "renovate-pr-${pr_number}"; then
-              echo "Merge conflict while integrating PR #${pr_number}. Resolve manually before retrying."
+            if git merge --no-edit --no-ff "renovate-pr-${pr_number}"; then
+              echo "Successfully merged PR #${pr_number}"
+              merged_prs+=("$pr_number")
+            else
+              echo "Merge conflict in PR #${pr_number}. Aborting merge and skipping."
               git merge --abort || true
-              exit 1
+              skipped_prs+=("$pr_number")
             fi
           done
+
+          if [ "${#merged_prs[@]}" -eq 0 ]; then
+            echo "No Renovate PRs could be merged cleanly. Nothing to push."
+            exit 0
+          fi
 
           # Check if there are any new commits compared to the base branch
           if [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$BASE_BRANCH")" ]; then
@@ -72,21 +85,36 @@ jobs:
 
           git push --force-with-lease origin "$BATCH_BRANCH"
 
+          body_file=$(mktemp)
+          {
+            echo "## Summary"
+            echo "This PR aggregates open Renovate pull requests into a single reviewable branch."
+            echo ""
+            echo "## Included PRs"
+            if [ "${#merged_prs[@]}" -gt 0 ]; then
+              for num in "${merged_prs[@]}"; do
+                title=$(echo "$open_prs_json" | jq -r --argjson n "$num" '.[] | select(.number == $n) | .title')
+                echo "- #${num}: ${title}"
+              done
+            else
+              echo "None"
+            fi
+            if [ "${#skipped_prs[@]}" -gt 0 ]; then
+              echo ""
+              echo "## Skipped PRs (Merge Conflicts)"
+              for num in "${skipped_prs[@]}"; do
+                title=$(echo "$open_prs_json" | jq -r --argjson n "$num" '.[] | select(.number == $n) | .title')
+                echo "- #${num}: ${title}"
+              done
+            fi
+          } > "$body_file"
+
           existing_pr=$(gh pr list --head "$BATCH_BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
-            echo "Batch PR already exists: #${existing_pr}"
+            echo "Batch PR already exists: #${existing_pr}. Updating description..."
+            gh pr edit "$existing_pr" --body-file "$body_file"
             exit 0
           fi
-
-          body_file=$(mktemp)
-          cat > "$body_file" <<EOF
-          ## Summary
-          This PR aggregates all currently open Renovate pull requests into a single reviewable branch.
-
-          ## Included PRs
-          $(gh pr list --state open --limit 100 --json number,title,author,headRefName \
-            --jq '.[] | select((.author.login | test("renovate")) or (.headRefName | startswith("renovate/"))) | select(.headRefName != "'"$BATCH_BRANCH"'") | "- #\(.number): \(.title)"')
-          EOF
 
           gh pr create \
             --base "$BASE_BRANCH" \

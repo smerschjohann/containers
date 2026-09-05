@@ -1,0 +1,89 @@
+name: Renovate batch PR
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  batch-renovate-prs:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge all open Renovate PRs into a batch branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          BATCH_BRANCH: renovate-batch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "$BASE_BRANCH"
+          git checkout -B "$BATCH_BRANCH" "origin/$BASE_BRANCH"
+
+          mapfile -t pr_numbers < <(gh pr list --state open --limit 100 --json number,author --jq '.[] | select(.author.login == "renovate[bot]") | .number')
+
+          if [ "${#pr_numbers[@]}" -eq 0 ]; then
+            echo "No open Renovate PRs found. Nothing to batch."
+            exit 0
+          fi
+
+          for pr_number in "${pr_numbers[@]}"; do
+            echo "Merging Renovate PR #${pr_number} into ${BATCH_BRANCH}"
+            git fetch origin "pull/${pr_number}/head:renovate-pr-${pr_number}"
+
+            if ! git merge --no-edit --no-ff "renovate-pr-${pr_number}"; then
+              echo "Merge conflict while integrating PR #${pr_number}. Resolve manually before retrying."
+              git merge --abort || true
+              exit 1
+            fi
+          done
+
+          git push --force-with-lease origin "$BATCH_BRANCH"
+
+      - name: Create the batch PR if it does not exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          BATCH_BRANCH: renovate-batch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          existing_pr=$(gh pr list --head "$BATCH_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            echo "Batch PR already exists: #${existing_pr}"
+            exit 0
+          fi
+
+          body_file=$(mktemp)
+          cat > "$body_file" <<EOF
+          ## Summary
+          This PR aggregates all currently open Renovate pull requests into a single reviewable branch.
+
+          ## Included PRs
+          $(gh pr list --state open --limit 100 --json number,title,author --jq '.[] | select(.author.login == "renovate[bot]") | "- #\(.number): \(.title)"')
+          EOF
+
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$BATCH_BRANCH" \
+            --title "chore(deps): batch Renovate update" \
+            --body-file "$body_file"

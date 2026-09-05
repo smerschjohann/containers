@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9-minimal@sha256:580752f96d36c4132bffd30f9c34865bf4bd87f6aa161c969d117f21732e50f7 as app
+FROM registry.access.redhat.com/ubi9-minimal@sha256:7fbeae18dc9476399f565e68255f602a3374ea8614ba3d14843565131a13ff93 as app
 
 RUN microdnf -y module enable nodejs:18 && microdnf install -y nodejs
 RUN microdnf -y install python3

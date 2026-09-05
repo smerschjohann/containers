@@ -15,7 +15,11 @@ permissions:
 
 jobs:
   batch-renovate-prs:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'renovate[bot]'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.ref != 'renovate-batch' &&
+       (startsWith(github.event.pull_request.head.ref, 'renovate/') || contains(github.event.pull_request.user.login, 'renovate')))
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -23,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Merge all open Renovate PRs into a batch branch
+      - name: Create or update batch Renovate PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
@@ -38,12 +42,16 @@ jobs:
           git fetch origin "$BASE_BRANCH"
           git checkout -B "$BATCH_BRANCH" "origin/$BASE_BRANCH"
 
-          mapfile -t pr_numbers < <(gh pr list --state open --limit 100 --json number,author --jq '.[] | select(.author.login == "renovate[bot]") | .number')
+          # Match both Renovate App ("app/renovate"), bot user ("renovate[bot]"), or branch prefix ("renovate/")
+          mapfile -t pr_numbers < <(gh pr list --state open --limit 100 --json number,author,headRefName \
+            --jq '.[] | select((.author.login | test("renovate")) or (.headRefName | startswith("renovate/"))) | select(.headRefName != "'"$BATCH_BRANCH"'") | .number')
 
           if [ "${#pr_numbers[@]}" -eq 0 ]; then
             echo "No open Renovate PRs found. Nothing to batch."
             exit 0
           fi
+
+          echo "Found ${#pr_numbers[@]} Renovate PR(s) to merge: ${pr_numbers[*]}"
 
           for pr_number in "${pr_numbers[@]}"; do
             echo "Merging Renovate PR #${pr_number} into ${BATCH_BRANCH}"
@@ -56,16 +64,13 @@ jobs:
             fi
           done
 
-          git push --force-with-lease origin "$BATCH_BRANCH"
+          # Check if there are any new commits compared to the base branch
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$BASE_BRANCH")" ]; then
+            echo "No new commits to push. Branch is identical to $BASE_BRANCH."
+            exit 0
+          fi
 
-      - name: Create the batch PR if it does not exist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BASE_BRANCH: ${{ github.event.repository.default_branch }}
-          BATCH_BRANCH: renovate-batch
-        shell: bash
-        run: |
-          set -euo pipefail
+          git push --force-with-lease origin "$BATCH_BRANCH"
 
           existing_pr=$(gh pr list --head "$BATCH_BRANCH" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
@@ -79,7 +84,8 @@ jobs:
           This PR aggregates all currently open Renovate pull requests into a single reviewable branch.
 
           ## Included PRs
-          $(gh pr list --state open --limit 100 --json number,title,author --jq '.[] | select(.author.login == "renovate[bot]") | "- #\(.number): \(.title)"')
+          $(gh pr list --state open --limit 100 --json number,title,author,headRefName \
+            --jq '.[] | select((.author.login | test("renovate")) or (.headRefName | startswith("renovate/"))) | select(.headRefName != "'"$BATCH_BRANCH"'") | "- #\(.number): \(.title)"')
           EOF
 
           gh pr create \

@@ -21,7 +21,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["(^|/|\\.)([Dd]ocker|[Cc]ontainer)file$"],
+      "managerFilePatterns": [
+        "/(^|/|\\.)([Dd]ocker|[Cc]ontainer)file$/"
+      ],
       "matchStrings": [
         "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?\\sARG .*?_VERSION=(?<currentValue>.*)\\s"
       ],

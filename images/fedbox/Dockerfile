@@ -26,7 +26,7 @@ ARG HELM_VERSION=v4.3.0
 ARG HELMFILE_VERSION=v1.7.4
 
 # renovate: datasource=github-releases depName=helmfile/vals
-ARG VALS_VERSION=v0.46.0
+ARG VALS_VERSION=v0.46.1
 
 # Install Go from official tarball instead of distro package
 ARG GO_VERSION=1.27.0
@@ -96,7 +96,7 @@ FROM fedbox as fedbox-codeserver
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=coder/code-server
-ARG CODE_SERVER_VERSION=v4.136.2
+ARG CODE_SERVER_VERSION=v4.137.0
 
 USER root
 RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION#v}-${TARGETARCH}.rpm && \

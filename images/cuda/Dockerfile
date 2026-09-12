@@ -6,10 +6,10 @@ RUN go build -ldflags="-s -w" -o /gencert /main.go
 # STAGE 2: Builder (Compilation and Venv Setup)
 FROM docker.io/nvidia/cuda:13.2.1-devel-rockylinux10@sha256:6e66f5288ea88c69ec31030610c2afaeb3ed7a693004fd79d08fe43fa6d94d55 AS builder
 
-ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 12.0"
-ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
-ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.25.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
-ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 9.0 12.0"
+ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.26.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG SAGEATTENTION_VERSION=v2
 ARG COMFYUI_REF=master
 
@@ -127,7 +127,7 @@ COPY --from=caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd
 ENV PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/go/bin:/venv/main/bin:$PATH
 ENV HOME=/home/user
 ENV SAGEATTENTION_USE=1
-ENV LD_LIBRARY_PATH=/usr/local/cuda/targets/x86_64-linux/lib:/usr/local/cuda-13.0/targets/x86_64-linux/lib:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/targets/x86_64-linux/lib:/usr/local/cuda-13.2/targets/x86_64-linux/lib:/usr/local/cuda-13.0/targets/x86_64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 VOLUME [ "/workspace" ]
 WORKDIR /workspace
@@ -144,10 +144,10 @@ ENTRYPOINT ["/init"]
 # STAGE 4: AI Toolkit Builder (separate venv for additive image)
 FROM docker.io/nvidia/cuda:13.2.1-devel-rockylinux10@sha256:6e66f5288ea88c69ec31030610c2afaeb3ed7a693004fd79d08fe43fa6d94d55 AS aitoolkit-builder
 
-ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 12.0"
-ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
-ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.25.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
-ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.10.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 9.0 12.0"
+ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.26.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
+ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG AI_TOOLKIT_REF=main
 
 RUN dnf install epel-release -y && crb enable && \

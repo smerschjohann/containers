@@ -14,9 +14,18 @@ Optional environment variables:
 
 - `COMFYUI_VRAM_FLAG` to override VRAM mode, e.g. `--normalvram`, `--lowvram`, `--novram`.
 - `COMFYUI_ARGS` to append arbitrary ComfyUI CLI args.
+- `SAGEATTENTION_USE` to enable (`1` / `true`, default) or disable (`0` / `false`) Sage Attention (`--use-sage-attention`).
 - `PYTORCH_CUDA_ALLOC_CONF` to override allocator tuning.
 - `PROVISION_SCRIPT` runs as blocking oneshot before `comfy` and `code-server` start.
 - `ASYNC_PROVISION_SCRIPT` runs as separate oneshot and can execute in parallel during startup.
+
+### Sage Attention & MiniMax H3
+
+This image comes pre-equipped with:
+- **SageAttention** compiled and installed in the Python environment.
+- **ComfyUI-KJNodes** pre-installed in ComfyUI custom nodes (providing the `Patch Sage Attention KJ` node).
+- ComfyUI automatically launches with `--use-sage-attention` by default when `SAGEATTENTION_USE=1`.
+- Alternatively, you can use the `Patch Sage Attention KJ` node in workflows (e.g. for MiniMax H3 video generation) connected between the `UNETLoader` and `BasicGuider` with `sage_attention` set to `auto`.
 
 Provision scripts:
 

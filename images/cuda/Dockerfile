@@ -6,7 +6,7 @@ RUN go build -ldflags="-s -w" -o /gencert /main.go
 # STAGE 2: Builder (Compilation and Venv Setup)
 FROM docker.io/nvidia/cuda:13.2.1-devel-rockylinux10@sha256:6e66f5288ea88c69ec31030610c2afaeb3ed7a693004fd79d08fe43fa6d94d55 AS builder
 
-ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 9.0 12.0"
+ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.26.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
@@ -36,8 +36,11 @@ RUN if [ "$SAGEATTENTION_VERSION" != "none" ]; then \
       pip install triton -c /opt/workspace-internal/constraints.txt && \
       git clone https://github.com/thu-ml/SageAttention.git /tmp/sageattention && \
       cd /tmp/sageattention && \
-      if [ "$SAGEATTENTION_VERSION" = "v3" ]; then cd sageattention3_blackwell; fi && \
       pip install --no-build-isolation -c /opt/workspace-internal/constraints.txt . && \
+      if [ "$SAGEATTENTION_VERSION" = "v3" ] || [ "$SAGEATTENTION_VERSION" = "both" ]; then \
+        cd /tmp/sageattention/sageattention3_blackwell && \
+        pip install --no-build-isolation -c /opt/workspace-internal/constraints.txt . ; \
+      fi && \
       cd /tmp && \
       rm -rf /tmp/sageattention; \
     fi
@@ -124,9 +127,11 @@ COPY --from=builder --chown=1000:1000 /opt/workspace-internal /opt/workspace-int
 COPY --from=go-build /gencert /usr/local/bin/gencert
 COPY --from=caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 /usr/bin/caddy /usr/bin/caddy
 
+ARG SAGEATTENTION_VERSION=v2
+ENV SAGEATTENTION_VERSION=${SAGEATTENTION_VERSION}
+ENV SAGEATTENTION_USE=1
 ENV PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/go/bin:/venv/main/bin:$PATH
 ENV HOME=/home/user
-ENV SAGEATTENTION_USE=1
 ENV LD_LIBRARY_PATH=/usr/local/cuda/targets/x86_64-linux/lib:/usr/local/cuda-13.2/targets/x86_64-linux/lib:/usr/local/cuda-13.0/targets/x86_64-linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 VOLUME [ "/workspace" ]
@@ -144,7 +149,7 @@ ENTRYPOINT ["/init"]
 # STAGE 4: AI Toolkit Builder (separate venv for additive image)
 FROM docker.io/nvidia/cuda:13.2.1-devel-rockylinux10@sha256:6e66f5288ea88c69ec31030610c2afaeb3ed7a693004fd79d08fe43fa6d94d55 AS aitoolkit-builder
 
-ARG TORCH_CUDA_ARCH_LIST="8.6 8.9 9.0 12.0"
+ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG TORCHVISION_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchvision-0.26.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
 ARG TORCHAUDIO_WHEEL_URL=https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl

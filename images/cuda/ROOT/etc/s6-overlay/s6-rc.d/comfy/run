@@ -17,16 +17,25 @@ esac
 
 cd /opt/workspace-internal/ComfyUI/
 
-mkdir -p /workspace/basedir
-if [ ! -d /workspace/basedir/custom_nodes ]; then
-    echo "custom_nodes directory does not exist in /workspace/basedir. Copying from /opt/workspace-internal/ComfyUI/custom_nodes."
-    cp -a /opt/workspace-internal/ComfyUI/custom_nodes/ /workspace/basedir/
-fi
+mkdir -p /workspace/basedir/custom_nodes
+for node in /opt/workspace-internal/ComfyUI/custom_nodes/*; do
+    [ -e "$node" ] || continue
+    node_name=$(basename "$node")
+    if [ ! -e "/workspace/basedir/custom_nodes/$node_name" ]; then
+        echo "Copying built-in custom node $node_name to /workspace/basedir/custom_nodes/"
+        cp -a "$node" "/workspace/basedir/custom_nodes/"
+    fi
+done
 
 export LD_PRELOAD=libtcmalloc_minimal.so.4
 
-if [ "$SAGEATTENTION_USE" != "0" ] && { [ "$SAGEATTENTION_VERSION" = "v2" ] || [ "$SAGEATTENTION_VERSION" = "v3" ]; }; then
-    exec python main.py --base-directory /workspace/basedir --use-sage-attention ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}
-else
-    exec python main.py --base-directory /workspace/basedir ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}
-fi
+USE_SAGE_FLAG=""
+case "${SAGEATTENTION_USE:-1}" in
+    1|true|True|TRUE|yes|Yes|YES|on|On|ON)
+        if [ "${SAGEATTENTION_VERSION:-v2}" != "none" ]; then
+            USE_SAGE_FLAG="--use-sage-attention"
+        fi
+        ;;
+esac
+
+exec python main.py --base-directory /workspace/basedir ${USE_SAGE_FLAG} ${COMFYUI_VRAM_FLAG} ${COMFYUI_ARGS}

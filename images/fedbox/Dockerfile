@@ -108,5 +108,7 @@ RUN chmod a+x /usr/bin/*
 
 USER coder
 EXPOSE 8080/tcp
-CMD [ "/usr/bin/code-server" ]
+
+ENTRYPOINT [ "/usr/libexec/podman/catatonit", "--", "/usr/bin/code-server" ]
+CMD [ "--bind-addr", "0.0.0.0:8080" ]
 

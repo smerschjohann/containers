@@ -1,0 +1,35 @@
+{{- if not (eq .Values.pvcCreate false) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.pvcSize | default "10Gi" }}
+  storageClassName: {{ .Values.storageClassName }}
+{{- end }}
+{{- if and (eq (include "fedbox-codeserver.mode" .) "codejail") (eq (include "fedbox-codeserver.storageMode" .) "block") (dig "blockPvc" "enabled" true .Values.containersStorage) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ dig "blockPvc" "name" (printf "%s-containers" .Release.Name) .Values.containersStorage }}
+spec:
+  accessModes:
+  - {{ dig "blockPvc" "accessMode" "ReadWriteOnce" .Values.containersStorage }}
+  resources:
+    requests:
+      storage: {{ dig "blockPvc" "size" "25Gi" .Values.containersStorage }}
+  storageClassName: {{ dig "blockPvc" "storageClassName" "" .Values.containersStorage | quote }}
+  volumeMode: {{ dig "blockPvc" "volumeMode" "Block" .Values.containersStorage }}
+  {{- with (dig "blockPvc" "volumeName" "" .Values.containersStorage) }}
+  volumeName: {{ . | quote }}
+  {{- end }}
+  {{- with (dig "blockPvc" "selector" nil .Values.containersStorage) }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

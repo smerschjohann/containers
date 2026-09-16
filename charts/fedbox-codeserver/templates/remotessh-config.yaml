@@ -1,0 +1,29 @@
+{{- if eq (include "fedbox-codeserver.remoteSshEnabled" .) "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-remotessh
+data:
+  remotessh.sh: |
+    #!/bin/bash
+    chmod 700 ~ ~/.ssh /home/coder/remotessh/host
+    chmod 600 ~/.ssh/authorized_keys /home/coder/remotessh/host/*
+    /usr/sbin/sshd -f /home/coder/remotessh/sshd_config
+  sshd_config: |
+    Port 2222
+    HostKey /home/coder/remotessh/host/ssh_host_rsa_key
+    HostKey /home/coder/remotessh/host/ssh_host_ecdsa_key
+    HostKey /home/coder/remotessh/host/ssh_host_ed25519_key
+    AuthorizedKeysFile %h/.ssh/authorized_keys
+    PidFile /home/coder/remotessh/sshd.pid
+    PasswordAuthentication no
+    ChallengeResponseAuthentication no
+    StrictModes no
+    Subsystem sftp internal-sftp
+    {{- if .Values.remoteSsh.proxy.enabled }}
+    {{- $h := .Values.remoteSsh.proxy.host }}
+    {{- $p := .Values.remoteSsh.proxy.port }}
+    {{- $n := .Values.remoteSsh.proxy.noProxy }}
+    SetEnv HTTP_PROXY=http://{{ $h }}:{{ $p }} HTTPS_PROXY=http://{{ $h }}:{{ $p }} http_proxy=http://{{ $h }}:{{ $p }} https_proxy=http://{{ $h }}:{{ $p }} GRPC_PROXY=http://{{ $h }}:{{ $p }} grpc_proxy=http://{{ $h }}:{{ $p }} CLOUDSDK_PROXY_TYPE=http CLOUDSDK_PROXY_ADDRESS={{ $h }} CLOUDSDK_PROXY_PORT={{ $p }} NO_PROXY={{ $n }} no_proxy={{ $n }}
+    {{- end }}
+{{- end }}

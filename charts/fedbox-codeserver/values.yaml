@@ -1,0 +1,65 @@
+replicaCount: 1
+
+mode: standard
+
+image:
+  repository: "ghcr.io/smerschjohann/containers/fedbox-codeserver"
+  pullPolicy: IfNotPresent
+  tag: "latest@sha256:7533fa362367af70f31d01905787c5bcd70684f6f8ea804e694993e2d4f67abd"
+
+domain: code.example.invalid
+portHostRegex: "{subdomain:code-[0-9]+}\\.example\\.invalid"
+portHostCode: code-{{port}}.example.invalid
+forwardports: []
+
+nodeSelector: {}
+extraEnv: []
+
+resources: {}
+
+pvcCreate: true
+storageClassName: local-path
+
+remoteSsh:
+  enabled: false
+  proxy:
+    enabled: false
+    host: squid.proxy.svc.cluster.local
+    port: 3132
+    noProxy: "localhost,127.0.0.1,.cluster.local,.svc"
+
+containersStorage:
+  mode: block
+  blockPvc:
+    enabled: true
+    storageClassName: ""
+    accessMode: ReadWriteOnce
+    size: 25Gi
+    volumeMode: Block
+    devicePath: /dev/codejail-containers
+    selector: {}
+    volumeName: ""
+  loopback:
+    size: 25G
+    emptyDirSizeLimit: 30Gi
+
+networkPolicy:
+  egress:
+    proxy:
+      namespace: proxy
+      port: 3132
+    llmgate:
+      namespace: llmgate
+    forgejo:
+      namespace: forgejo
+    apiServer:
+      cidr: ""
+      port: 6443
+    clusterVip:
+      cidr: "10.43.0.1/32"
+      port: 443
+
+fqdnNetworkPolicy: {}
+
+rbac:
+  clusterAdmin: null

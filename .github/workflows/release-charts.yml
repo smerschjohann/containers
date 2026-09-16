@@ -1,0 +1,126 @@
+name: Release Helm Charts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'charts/**'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Overwrite / force release if already existing'
+        required: false
+        type: boolean
+        default: false
+      chart:
+        description: 'Publish a specific chart (empty = all in charts/)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  OCI_REGISTRY: 'oci://ghcr.io/${{ github.repository }}/charts'
+
+jobs:
+  release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to GitHub Container Registry (GHCR)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Package, Release, and Push Charts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+          CHART_FILTER: ${{ github.event.inputs.chart || '' }}
+        run: |
+          set -euo pipefail
+
+          # Normalize repository and registry destination to lowercase for GHCR
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          OCI_TARGET=$(echo "$OCI_REGISTRY" | tr '[:upper:]' '[:lower:]')
+
+          mkdir -p /tmp/dist
+
+          for chart_dir in charts/*/; do
+            [ -d "$chart_dir" ] || continue
+            [ -f "$chart_dir/Chart.yaml" ] || continue
+
+            chart_dir="${chart_dir%/}"
+            chart_dirname=$(basename "$chart_dir")
+
+            if [ -n "$CHART_FILTER" ] && [ "$CHART_FILTER" != "$chart_dirname" ]; then
+              echo "Skipping $chart_dirname (filtered by input)..."
+              continue
+            fi
+
+            chart_name=$(helm show chart "$chart_dir" | awk -F': *' '$1 == "name" {print $2}')
+            chart_version=$(helm show chart "$chart_dir" | awk -F': *' '$1 == "version" {print $2}')
+
+            if [ -z "$chart_name" ] || [ -z "$chart_version" ]; then
+              echo "Error: Chart name or version could not be determined for $chart_dir!"
+              exit 1
+            fi
+
+            tag="${chart_name}-${chart_version}"
+            echo "================================================================"
+            echo "Processing chart: $chart_name (version: $chart_version, tag: $tag)"
+            echo "================================================================"
+
+            # Check if GitHub Release already exists
+            if gh release view "$tag" >/dev/null 2>&1; then
+              if [ "$FORCE" != "true" ]; then
+                echo "Release $tag already exists on GitHub and FORCE is false. Skipping..."
+                continue
+              else
+                echo "Release $tag already exists, but FORCE is true. Overwriting..."
+              fi
+            fi
+
+            # Lint chart
+            echo "Linting chart $chart_name..."
+            helm lint "$chart_dir"
+
+            # Package chart
+            echo "Packaging chart $chart_name..."
+            helm package "$chart_dir" -d /tmp/dist
+            package_file="/tmp/dist/${chart_name}-${chart_version}.tgz"
+
+            if [ ! -f "$package_file" ]; then
+              echo "Error: Package file $package_file was not created!"
+              exit 1
+            fi
+
+            # 1. Create or update GitHub Release and upload tarball asset
+            echo "Creating/updating GitHub Release for $tag..."
+            if gh release view "$tag" >/dev/null 2>&1; then
+              gh release upload "$tag" "$package_file" --clobber
+            else
+              gh release create "$tag" "$package_file" \
+                --title "$chart_name $chart_version" \
+                --notes "Helm chart release for $chart_name $chart_version"
+            fi
+
+            # 2. Push OCI artifact to GHCR
+            echo "Pushing OCI artifact to $OCI_TARGET..."
+            helm push "$package_file" "$OCI_TARGET"
+
+            echo "Successfully published: $tag"
+          done

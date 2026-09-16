@@ -1,0 +1,57 @@
+{{- if eq (include "fedbox-codeserver.networkPolicyEnabled" .) "true" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-internet-only
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ include "fedbox-codeserver.labelsInstance" . }}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.egress.proxy.namespace }}
+    ports:
+    - protocol: TCP
+      port: {{ .Values.networkPolicy.egress.proxy.port }}
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.egress.llmgate.namespace }}
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 8080
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.networkPolicy.egress.forgejo.namespace }}
+    ports:
+    - protocol: TCP
+      port: 3000
+  {{- with .Values.networkPolicy.egress.apiServer.cidr }}
+  - to:
+    - ipBlock:
+        cidr: {{ . }}
+    ports:
+    - protocol: TCP
+      port: {{ $.Values.networkPolicy.egress.apiServer.port }}
+  {{- end }}
+  {{- with .Values.networkPolicy.egress.clusterVip.cidr }}
+  - to:
+    - ipBlock:
+        cidr: {{ . }}
+    ports:
+    - protocol: TCP
+      port: {{ $.Values.networkPolicy.egress.clusterVip.port }}
+  {{- end }}
+{{- end }}

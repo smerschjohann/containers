@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-{{ include "fedbox-codeserver.serviceSuffix" . }}
+{{- if or .Values.rbac.clusterAdmin (and (eq (toString .Values.rbac.clusterAdmin) "<nil>") (eq (include "fedbox-codeserver.mode" .) "standard")) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-code-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-{{ include "fedbox-codeserver.serviceSuffix" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

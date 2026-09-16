@@ -1,0 +1,309 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ include "fedbox-codeserver.labelsInstance" . }}
+      app.kubernetes.io/name: {{ .Release.Name }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      {{- if eq (include "fedbox-codeserver.mode" .) "standard" }}
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/code-server: unconfined
+      {{- end }}
+      labels:
+        app.kubernetes.io/instance: {{ include "fedbox-codeserver.labelsInstance" . }}
+        app.kubernetes.io/name: {{ .Release.Name }}
+    spec:
+      {{- with .Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (include "fedbox-codeserver.runtimeClassName" .) }}
+      {{- if . }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
+      {{- end }}
+      {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+      enableServiceLinks: false
+      {{- end }}
+      containers:
+      - command:
+        - /ko-app/chisel
+        - server
+        - --reverse
+        - --socks5
+        - --port=1953
+        image: jpillora/chisel:1.12.1
+        imagePullPolicy: Always
+        name: chisel
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - command:
+        - /usr/libexec/podman/catatonit
+        args:
+        - "--"
+        - /usr/bin/code-server
+        - --bind-addr=0.0.0.0:8154
+        - --disable-getting-started-override
+        {{- if eq (include "fedbox-codeserver.authEnabled" .) "true" }}
+        - --auth=password
+        {{- else }}
+        - --auth=none
+        {{- end }}
+        - --proxy-domain={{ .Values.portHostCode }}
+        - --disable-workspace-trust
+        env:
+        - name: DISABLE_TELEMETRY
+          value: "true"
+        {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+        - name: CONTAINERS_STORAGE_MODE
+          value: {{ include "fedbox-codeserver.storageMode" . | quote }}
+        {{- if eq (include "fedbox-codeserver.storageMode" .) "block" }}
+        - name: CONTAINERS_BLOCK_DEVICE
+          value: {{ dig "blockPvc" "devicePath" "/dev/codejail-containers" .Values.containersStorage | quote }}
+        {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- else }}
+        - name: _BUILDAH_STARTED_IN_USERNS
+        - name: BUILDAH_ISOLATION
+          value: chroot
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: code-server
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+                STORAGE_PATH="/var/lib/containers"
+                MOUNT_POINT="$STORAGE_PATH/storage"
+
+                if [ -n "$HTTP_PROXY" ] && ! grep -q "^proxy=" /etc/dnf/dnf.conf 2>/dev/null; then
+                    echo "proxy=$HTTP_PROXY" | sudo tee -a /etc/dnf/dnf.conf
+                fi
+
+                mkdir -p "$MOUNT_POINT"
+
+                if [ "${CONTAINERS_STORAGE_MODE:-loopback}" = "block" ]; then
+                    BLOCK_DEVICE="${CONTAINERS_BLOCK_DEVICE:-/dev/codejail-containers}"
+                  if [ ! -b "$BLOCK_DEVICE" ]; then
+                    echo "Raw block device not available: $BLOCK_DEVICE" >&2
+                    exit 1
+                  fi
+                    NEED_FORMAT=true
+                    if command -v blkid >/dev/null 2>&1; then
+                    if blkid -o value -s TYPE "$BLOCK_DEVICE" >/dev/null 2>&1; then
+                            NEED_FORMAT=false
+                        fi
+                  elif command -v lsblk >/dev/null 2>&1 && lsblk -no FSTYPE "$BLOCK_DEVICE" | grep -q .; then
+                        NEED_FORMAT=false
+                    fi
+                    if [ "$NEED_FORMAT" = "true" ]; then
+                        sudo mkfs.ext4 -F "$BLOCK_DEVICE"
+                    fi
+                    if ! mountpoint -q "$MOUNT_POINT"; then
+                        sudo mount -o rw "$BLOCK_DEVICE" "$MOUNT_POINT"
+                    fi
+                  if ! mountpoint -q "$MOUNT_POINT"; then
+                    echo "Failed to mount $BLOCK_DEVICE on $MOUNT_POINT" >&2
+                    exit 1
+                  fi
+                else
+                    IMG_FILE="$STORAGE_PATH/storage.img"
+                    if [ ! -f "$IMG_FILE" ]; then
+                        truncate -s {{ dig "loopback" "size" "25G" .Values.containersStorage }} "$IMG_FILE"
+                        sudo dnf install mkfs.ext4 -y
+                        mkfs.ext4 -F "$IMG_FILE"
+                    fi
+
+                    sudo mknod /dev/loop-control c 10 237
+
+                    for i in $(seq 0 7); do
+                      if [ ! -b /dev/loop$i ]; then
+                        sudo mknod /dev/loop$i b 7 $i
+                      fi
+                    done
+
+                    if ! mountpoint -q "$MOUNT_POINT"; then
+                        sudo mount -o loop,rw "$IMG_FILE" "$MOUNT_POINT"
+                    fi
+                fi
+
+                if [ ! -c /dev/fuse ]; then sudo mknod /dev/fuse c 10 229; fi
+                sudo chmod 666 /dev/fuse
+                if [ ! -c /dev/net/tun ]; then
+                  sudo mkdir -p /dev/net
+                  sudo mknod /dev/net/tun c 10 200
+                  sudo chmod 666 /dev/net/tun
+                fi
+
+                sudo chown 1000:1000 "$MOUNT_POINT"
+                
+                mkdir -p /home/coder/.config/containers
+                cat <<EOF > /home/coder/.config/containers/storage.conf
+                [storage]
+                driver = "overlay"
+                graphroot = "$MOUNT_POINT"
+                runroot = "/run/user/1000/containers"
+                [storage.options.overlay]
+                mount_program = ""
+                EOF
+
+                sudo chmod 4755 /usr/bin/newuidmap /usr/bin/newgidmap
+                sudo mount -o remount,suid /
+                sudo mount --make-rshared /
+                sudo mkdir -p /run/user/1000/containers
+                sudo chown -R 1000:1000 /run/user/1000
+
+                mkdir -p /home/coder/.kube
+                cat <<EOF > /home/coder/.kube/config
+                apiVersion: v1
+                kind: Config
+                clusters:
+                - cluster:
+                    certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                    server: https://kubernetes.default.svc.cluster.local
+                  name: in-cluster
+                contexts:
+                - context:
+                    cluster: in-cluster
+                    namespace: {{ .Release.Namespace }}
+                    user: codejail
+                  name: in-cluster
+                current-context: in-cluster
+                users:
+                - name: codejail
+                  user:
+                    tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+                EOF
+                sudo chown -R 1000:1000 /home/coder/.kube
+                sudo chmod 600 /home/coder/.kube/config
+
+                /home/coder/remotessh/remotessh.sh
+                {{- else }}
+                mkdir -p /home/coder/.config/containers; echo -e "[containers]\nvolumes = [\n\t\"/proc:/proc\",\n]\ndefault_sysctls = []" > /home/coder/.config/containers/containers.conf; echo -e "[containers]\nvolumes = [\n\t\"/proc:/proc\",\n]\ndefault_sysctls = []" | sudo tee /etc/containers/containers.conf > /dev/null
+                {{- end }}
+        name: {{ include "fedbox-codeserver.serviceSuffix" . }}
+        ports:
+        - containerPort: 8154
+          name: http
+          protocol: TCP
+        resources:
+          {{- if .Values.resources }}
+          {{- toYaml .Values.resources | nindent 10 }}
+          {{- else if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+          limits:
+            cpu: 6
+            memory: 12Gi
+          requests:
+            cpu: 2
+            memory: 3Gi
+          {{- else }}
+          requests:
+            cpu: 300m
+            memory: 3Gi
+          limits:
+            memory: 20Gi
+          {{- end }}
+        securityContext:
+          {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+          privileged: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          {{- else }}
+          runAsUser: 1000
+          seccompProfile:
+            type: Unconfined
+          {{- end }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /home/coder
+          name: data
+        {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+        - mountPath: /var/lib/containers
+          name: containers-mount
+        {{- if eq (include "fedbox-codeserver.storageMode" .) "block" }}
+        volumeDevices:
+        - devicePath: {{ dig "blockPvc" "devicePath" "/dev/codejail-containers" .Values.containersStorage }}
+          name: containers-block
+        {{- end }}
+        {{- else }}
+        - mountPath: /var/lib/containers
+          name: containers
+        - mountPath: /dev/net/tun
+          name: dev-tun
+        - mountPath: /run/host
+          mountPropagation: HostToContainer
+          name: host
+        {{- end }}
+      dnsPolicy: {{ .Values.dnsPolicy | default (eq (include "fedbox-codeserver.mode" .) "codejail" | ternary "None" "ClusterFirst") }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      hostname: {{ .Release.Name }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+      serviceAccount: {{ .Release.Name }}-{{ include "fedbox-codeserver.serviceSuffix" . }}
+      serviceAccountName: {{ .Release.Name }}-{{ include "fedbox-codeserver.serviceSuffix" . }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
+      - name: containers-mount
+        emptyDir:
+          sizeLimit: {{ dig "loopback" "emptyDirSizeLimit" "30Gi" .Values.containersStorage }}
+      {{- if eq (include "fedbox-codeserver.storageMode" .) "block" }}
+      - name: containers-block
+        persistentVolumeClaim:
+          claimName: {{ dig "blockPvc" "name" (printf "%s-containers" .Release.Name) .Values.containersStorage }}
+      {{- end }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ if .Values.pvcName }}{{.Values.pvcName}}{{else}}{{ .Release.Name }}-data{{ end }}
+      {{- else }}
+      - emptyDir:
+          sizeLimit: 30Gi
+        name: containers
+      - hostPath:
+          path: /dev/net/tun
+          type: CharDevice
+        name: dev-tun
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ if .Values.pvcName }}{{.Values.pvcName}}{{else}}{{ .Release.Name }}-data{{ end }}
+      - hostPath:
+          path: /
+          type: Directory
+        name: host
+      {{- end }}

@@ -1,6 +1,7 @@
 name: Build, Merge, and Push
 
 permissions:
+  contents: write
   packages: write
 
 on:
@@ -111,7 +112,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
       - name: Log in to ghcr.io
         env:
           username: ${{ github.actor }}
@@ -135,6 +138,7 @@ jobs:
       - name: Merge & push manifests
         env:
           TASKS: ${{ github.event_name == 'push' && env.DEFAULT_TASKS || github.event.inputs.tasks }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tasks=$(jq -c '.[]' images/tasks.json)
           for task in $tasks; do
@@ -188,5 +192,62 @@ jobs:
             else
               echo "Error: No source images found for $name"
               exit 1
+            fi
+
+            # Check if a matching Helm chart exists for this image
+            chart_dir="charts/$name"
+            if [ -d "$chart_dir" ] && [ -f "$chart_dir/values.yaml" ] && [ -f "$chart_dir/Chart.yaml" ]; then
+              echo "Matching Helm chart found for $name at $chart_dir"
+              manifest_digest=$(docker buildx imagetools inspect --raw "$final_manifest" | sha256sum | awk '{print $1}')
+              echo "Multi-arch manifest digest: sha256:$manifest_digest"
+
+              current_digest=$(grep -oP '(?<=sha256:)[0-9a-f]{64}' "$chart_dir/values.yaml" || true)
+              if [ "$current_digest" = "$manifest_digest" ]; then
+                echo "Chart $chart_dir already contains latest digest ($manifest_digest). Skipping chart update."
+              else
+                echo "Updating chart $chart_dir with new digest $manifest_digest..."
+                sed -i -E "s|(tag:\s*\")[^\"]*(\")|\1latest@sha256:${manifest_digest}\2|" "$chart_dir/values.yaml"
+
+                # Bump patch version in Chart.yaml
+                current_version=$(awk -F': *' '$1 == "version" {print $2}' "$chart_dir/Chart.yaml" | tr -d ' "')
+                IFS='.' read -r major minor patch <<< "$current_version"
+                new_patch=$((patch + 1))
+                new_version="${major}.${minor}.${new_patch}"
+                echo "Bumping chart version: $current_version -> $new_version"
+                sed -i -E "s|^(version:\s*).*|\1$new_version|" "$chart_dir/Chart.yaml"
+
+                # Commit updated chart files to repository
+                git config user.name "github-actions[bot]"
+                git config user.email "github-actions[bot]@users.noreply.github.com"
+                git pull --rebase origin "${GITHUB_REF_NAME:-main}" || true
+                git add "$chart_dir/values.yaml" "$chart_dir/Chart.yaml"
+                git commit -m "chore(chart): update $name image digest and bump version to $new_version"
+                git push origin "HEAD:${GITHUB_REF_NAME:-main}"
+
+                # Package and release Helm chart
+                echo "Packaging and releasing Helm chart..."
+                mkdir -p /tmp/chart-dist
+                helm package "$chart_dir" -d /tmp/chart-dist
+                package_file="/tmp/chart-dist/${name}-${new_version}.tgz"
+
+                # Create GitHub Release with the tarball attached
+                release_tag="${name}-${new_version}"
+                echo "Creating GitHub Release $release_tag..."
+                if gh release view "$release_tag" >/dev/null 2>&1; then
+                  gh release upload "$release_tag" "$package_file" --clobber
+                else
+                  gh release create "$release_tag" "$package_file" \
+                    --title "$name $new_version" \
+                    --notes "Automated release for $name $new_version with image digest sha256:$manifest_digest"
+                fi
+
+                # Push OCI artifact to GHCR
+                echo "Logging in to GHCR for Helm..."
+                echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+                repo_lower=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+                echo "Pushing OCI chart to oci://ghcr.io/${repo_lower}/charts..."
+                helm push "$package_file" "oci://ghcr.io/${repo_lower}/charts"
+                echo "Successfully released chart $release_tag!"
+              fi
             fi
           done

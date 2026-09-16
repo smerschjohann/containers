@@ -1,0 +1,19 @@
+{{- if .Values.forwardports }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-forwards" .Release.Name | trunc 63 | trimSuffix "-" }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ include "fedbox-codeserver.labelsInstance" . }}
+    app.kubernetes.io/name: {{ .Release.Name }}
+  ports:
+  {{- range $i, $p := .Values.forwardports }}
+  - name: http-{{ $i }}
+    port: {{ $p }}
+    targetPort: {{ $p }}
+    protocol: TCP
+  {{- end }}
+  sessionAffinity: None
+  type: ClusterIP
+{{- end }}

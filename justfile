@@ -65,3 +65,10 @@ merge:
     done
     buildah push --all $manifest docker://$manifest
 
+lint-chart chart="fedbox-codeserver":
+    helm lint charts/{{chart}}
+
+package-chart chart="fedbox-codeserver":
+    mkdir -p dist
+    helm package charts/{{chart}} -d dist/
+

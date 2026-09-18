@@ -1,5 +1,5 @@
 # STAGE 1: Go Tools for Certificate Generation
-FROM docker.io/library/golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS go-build
+FROM docker.io/library/golang:1.27.1-alpine@sha256:e9bbdf282b51ac8b34c46e5f31d2d56e7bad60366c35f08d2f295b921b13388b AS go-build
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 

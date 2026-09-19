@@ -69,7 +69,7 @@ RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
 # plugin-load clones additional plugins into the persistent home dir)
 ENV ZPLUGINDIR_SYSTEM=/usr/share/zsh/plugins
 RUN set -ex && \
-    mkdir -p "$ZPLUGINDIR" && \
+    mkdir -p "$ZPLUGINDIR_SYSTEM" && \
     for repo in \
         romkatv/powerlevel10k \
         ohmyzsh/ohmyzsh \
@@ -78,8 +78,8 @@ RUN set -ex && \
         zsh-users/zsh-autosuggestions \
         zsh-users/zsh-history-substring-search \
         zsh-users/zsh-syntax-highlighting; do \
-        git clone -q --depth 1 --recursive --shallow-submodules "https://github.com/$repo" "$ZPLUGINDIR/${repo##*/}" && \
-        chown -R coder:coder "$ZPLUGINDIR/${repo##*/}"; \
+        git clone -q --depth 1 --recursive --shallow-submodules "https://github.com/$repo" "$ZPLUGINDIR_SYSTEM/${repo##*/}" && \
+        chown -R coder:coder "$ZPLUGINDIR_SYSTEM/${repo##*/}"; \
     done
 
 VOLUME [ "/home/coder" ]

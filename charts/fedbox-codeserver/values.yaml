@@ -5,7 +5,7 @@ mode: standard
 image:
   repository: "ghcr.io/smerschjohann/containers/fedbox-codeserver"
   pullPolicy: IfNotPresent
-  tag: "latest@sha256:ac289fdec72b10db8c76dfe93317438095e4914d9dc2e2ae0c4971dbc4857dc0"
+  tag: "latest@sha256:a27c2acd679ea1d76c66525775e86204e08ed1e08a26e81fe7e604b997c9395b"
 
 domain: code.example.invalid
 portHostRegex: "{subdomain:code-[0-9]+}\\.example\\.invalid"

@@ -3,7 +3,7 @@ ARG TARGETARCH
 
 RUN dnf remove -y shadow-utils && dnf install -y \
         procps-ng moreutils btop git wget rg \
-        jq vim quilt fzf zsh age gdu \
+        jq vim quilt fzf zsh age gdu eza \
         python python3-pip \
         zstd zip p7zip p7zip-plugins \
         bash-completion tmux \
@@ -61,12 +61,32 @@ RUN curl -sSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" -o 
 
 RUN useradd -s /usr/bin/zsh -G wheel -pcoder coder && \
     echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd && \
-    chmod 0400 /etc/shadow
+    chmod 0400 /etc/shadow && \
+    chmod 700 /etc/skel/.ssh
+
+# Pre-clone zsh plugins at build time so the first shell starts instantly and
+# works without network access (loaded in place from $ZPLUGINDIR_SYSTEM;
+# plugin-load clones additional plugins into the persistent home dir)
+ENV ZPLUGINDIR_SYSTEM=/usr/share/zsh/plugins
+RUN set -ex && \
+    mkdir -p "$ZPLUGINDIR" && \
+    for repo in \
+        romkatv/powerlevel10k \
+        ohmyzsh/ohmyzsh \
+        reegnz/jq-zsh-plugin \
+        Tarrasch/zsh-bd \
+        zsh-users/zsh-autosuggestions \
+        zsh-users/zsh-history-substring-search \
+        zsh-users/zsh-syntax-highlighting; do \
+        git clone -q --depth 1 --recursive --shallow-submodules "https://github.com/$repo" "$ZPLUGINDIR/${repo##*/}" && \
+        chown -R coder:coder "$ZPLUGINDIR/${repo##*/}"; \
+    done
 
 VOLUME [ "/home/coder" ]
 ENV HOME=/home/coder
-# PID 1: reappt Zombies (Hook-/sshd-/Terminal-Kinder) und leitet Signale weiter
-ENTRYPOINT [ "/usr/libexec/podman/catatonit" ]
+# PID 1: reappt Zombies (Hook-/sshd-/Terminal-Kinder) und leitet Signale weiter;
+# der Wrapper synchronisiert vorher /etc/skel nach $HOME
+ENTRYPOINT [ "/usr/local/bin/entrypoint" ]
 CMD [ "/usr/bin/zsh" ]
 
 USER coder
@@ -109,6 +129,6 @@ RUN chmod a+x /usr/bin/*
 USER coder
 EXPOSE 8080/tcp
 
-ENTRYPOINT [ "/usr/libexec/podman/catatonit", "--", "/usr/bin/code-server" ]
+ENTRYPOINT [ "/usr/local/bin/entrypoint", "--", "/usr/bin/code-server" ]
 CMD [ "--bind-addr", "0.0.0.0:8080" ]
 

@@ -1,20 +1,15 @@
-# This is Git's per-user configuration file.
-[user]
-# Please adapt and uncomment the following lines:
-#    name = 
-#    email = coder@devbox.(none)
+# Personal git configuration - this file is yours.
+# skel-sync installs it once and never overwrites it: identity and personal
+# settings placed here survive image updates.
+#
+# Tool defaults (difftool, default branch, ...) live in the image and are
+# included from /usr/share/home/gitconfig, so they stay current automatically.
+# Anything set below wins over those defaults.
 
-[init]
-    defaultBranch = main
-[core]
-    editor = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait
-[diff]
-    tool = vscode
-[difftool "vscode"]
-    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait --diff $LOCAL $REMOTE
-[merge]
-    tool = vscode
-[mergetool "vscode"]
-    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait $MERGED
-[difftool]
-    prompt = false
+[include]
+    path = /usr/share/home/gitconfig
+
+# Your identity - git refuses to commit until this is set. Uncomment and adjust:
+[user]
+#    name  = Jane Doe
+#    email = jane@example.org

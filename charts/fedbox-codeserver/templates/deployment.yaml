@@ -98,6 +98,7 @@ spec:
               - /bin/bash
               - -c
               - |
+                /usr/local/bin/skel-sync
                 {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
                 STORAGE_PATH="/var/lib/containers"
                 MOUNT_POINT="$STORAGE_PATH/storage"

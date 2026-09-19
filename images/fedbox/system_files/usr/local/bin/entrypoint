@@ -1,0 +1,7 @@
+#!/bin/sh
+# Image entrypoint: bring $HOME up to date with /etc/skel, then exec the
+# init/PID-1 (catatonit) with the CMD (interactive zsh, or code-server).
+# Kubernetes deployments override the entrypoint and call skel-sync from a
+# postStart hook instead.
+/usr/local/bin/skel-sync || true
+exec /usr/libexec/podman/catatonit "$@"

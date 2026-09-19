@@ -1,0 +1,35 @@
+# ~/.zshrc-local - personal zsh customizations
+#
+# This file lives in your home volume: skel-sync installs it once (only if
+# missing) and never overwrites it again. The image's ~/.zshrc sources it at
+# the end, so everything here may override what the image sets.
+#
+# Everything below is commented out - uncomment what you need.
+
+### Additional zsh plugin - cloned on first use into ~/.config/zsh/plugins
+### (persists in the home volume; user plugins win over image plugins):
+# plugin-load zsh-users/zsh-completions
+# plugin-load Tarrasch/zsh-functional
+
+### Aliases and functions:
+# alias gs='git status -sb'
+# alias gco='git checkout'
+# mkcd() { mkdir -p "$1" && cd "$1"; }
+
+### Environment variables / PATH additions:
+# export EDITOR=vim
+# export PATH="$HOME/bin:$PATH"
+
+### Java (example):
+# export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+
+### Kubernetes (example: pin a specific kubeconfig):
+# export KUBECONFIG="$HOME/.kube/config"
+
+### Proxy (example):
+# export http_proxy=http://proxy.example.org:8080
+# export https_proxy=http://proxy.example.org:8080
+# export no_proxy="localhost,127.0.0.1,.cluster.local,.svc"
+
+### Show what this file sets (uncomment for debugging):
+# print -l ${(k)aliases} | grep -E '^(gs|gco|mkcd)$'

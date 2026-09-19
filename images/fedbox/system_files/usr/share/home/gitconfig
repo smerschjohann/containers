@@ -1,0 +1,16 @@
+# Image-managed git defaults, included from ~/.gitconfig.
+# Do not put personal data here (belongs in ~/.gitconfig) - this file is
+# replaced on every image update by design.
+
+[init]
+    defaultBranch = main
+[diff]
+    tool = vscode
+[difftool "vscode"]
+    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait --diff $LOCAL $REMOTE
+[merge]
+    tool = vscode
+[mergetool "vscode"]
+    cmd = /usr/lib/code-server/lib/vscode/bin/remote-cli/code-server --wait $MERGED
+[difftool]
+    prompt = false

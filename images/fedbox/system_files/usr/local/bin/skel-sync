@@ -1,0 +1,80 @@
+#!/bin/bash
+# skel-sync: populate $HOME from /etc/skel without clobbering user-owned files.
+#
+# Policy per entry (recursively):
+#   - missing in $HOME                    -> installed from /etc/skel
+#   - symlink into /usr/share/home        -> refreshed (image-managed, e.g. ~/.zshrc)
+#   - regular file identical to /etc/skel -> refreshed (unmodified file from an
+#                                            older image, safe migration)
+#   - anything else                       -> left untouched (user-owned)
+#
+# Designed to run in container entrypoints and k8s postStart hooks; it never
+# aborts with a non-zero exit so it cannot take down the calling container.
+set -u
+
+HOME_DIR="${1:-${HOME:-/home/coder}}"
+SKEL_DIR="${SKEL_DIR:-/etc/skel}"
+
+if [ ! -d "$HOME_DIR" ]; then
+    echo "skel-sync: $HOME_DIR does not exist, skipping" >&2
+    exit 0
+fi
+if [ ! -d "$SKEL_DIR" ]; then
+    echo "skel-sync: $SKEL_DIR missing, skipping" >&2
+    exit 0
+fi
+
+shopt -s nullglob dotglob
+
+_rel() { printf '%s\n' "${1#"$HOME_DIR"/}"; }
+
+sync_file() {
+    local src=$1 dst=$2 target
+    if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+        if cp -a "$src" "$dst"; then
+            echo "skel-sync: installed $(_rel "$dst")"
+        else
+            echo "skel-sync: failed to install $(_rel "$dst")" >&2
+        fi
+        return
+    fi
+    # refresh image-managed symlinks (both ends must be symlinks)
+    if [ -L "$dst" ] && [ -L "$src" ]; then
+        target=$(readlink "$dst" 2>/dev/null || true)
+        case "$target" in
+            /usr/share/home/*)
+                ln -sfn "$(readlink "$src")" "$dst" \
+                    || echo "skel-sync: failed to refresh $(_rel "$dst")" >&2
+                ;;
+        esac
+        return
+    fi
+    # migrate unmodified files from older images when the type changed
+    # (e.g. .zshrc shipped as regular file in old images -> symlink now);
+    # identical regular files are left alone (no-op, no log noise)
+    if [ -L "$src" ] && [ -f "$dst" ] && [ ! -L "$dst" ] && cmp -s "$src" "$dst" 2>/dev/null; then
+        if cp -a "$src" "$dst"; then
+            echo "skel-sync: refreshed $(_rel "$dst")"
+        else
+            echo "skel-sync: failed to refresh $(_rel "$dst")" >&2
+        fi
+    fi
+}
+
+sync_tree() {
+    local src=$1 dst=$2 entry name
+    for entry in "$src"/*; do
+        name="${entry##*/}"
+        if [ -d "$entry" ] && [ ! -L "$entry" ]; then
+            if [ ! -d "$dst/$name" ]; then
+                mkdir -p "$dst/$name" 2>/dev/null || continue
+            fi
+            sync_tree "$entry" "$dst/$name"
+        else
+            sync_file "$entry" "$dst/$name"
+        fi
+    done
+}
+
+sync_tree "$SKEL_DIR" "$HOME_DIR"
+exit 0

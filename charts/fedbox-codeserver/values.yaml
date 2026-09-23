@@ -43,6 +43,9 @@ containersStorage:
     size: 25G
     emptyDirSizeLimit: 30Gi
 
+unqualifiedSearchRegistries:
+  - "docker.io"
+
 networkPolicy:
   egress:
     proxy:

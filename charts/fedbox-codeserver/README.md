@@ -75,3 +75,12 @@ remoteSsh:
 ```
 
 Proxy environment variables are configured via `SetEnv` directives in the generated `sshd_config`. Without `remoteSsh.proxy.enabled`, no `SetEnv` lines are rendered.
+
+## Container Registries
+
+By default, `unqualifiedSearchRegistries` is set to `["docker.io"]` so unqualified image pulls (e.g. `podman pull alpine`) resolve directly to Docker Hub without prompting or searching Fedora registries first:
+
+```yaml
+unqualifiedSearchRegistries:
+  - "docker.io"
+```

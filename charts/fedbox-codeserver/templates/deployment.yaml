@@ -99,6 +99,13 @@ spec:
               - -c
               - |
                 /usr/local/bin/skel-sync
+                {{- $unqualifiedRegistries := .Values.unqualifiedSearchRegistries | default (index .Values "unqualified-search-registries") }}
+                {{- if $unqualifiedRegistries }}
+                sudo mkdir -p /etc/containers/registries.conf.d
+                echo 'unqualified-search-registries = {{ toJson $unqualifiedRegistries }}' | sudo tee /etc/containers/registries.conf.d/01-registries.conf > /dev/null
+                mkdir -p /home/coder/.config/containers/registries.conf.d
+                echo 'unqualified-search-registries = {{ toJson $unqualifiedRegistries }}' > /home/coder/.config/containers/registries.conf.d/01-registries.conf
+                {{- end }}
                 {{- if eq (include "fedbox-codeserver.mode" .) "codejail" }}
                 STORAGE_PATH="/var/lib/containers"
                 MOUNT_POINT="$STORAGE_PATH/storage"

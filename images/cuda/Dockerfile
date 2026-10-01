@@ -4,7 +4,7 @@ ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
 # STAGE 2: Builder (Compilation and Venv Setup)
-FROM docker.io/nvidia/cuda:13.4.1-devel-rockylinux10@sha256:cb81c6606a4cf1932c9d6621aec4c4bf788e5d976bedaa0b60abb8783eb4607f AS builder
+FROM docker.io/nvidia/cuda:13.4.2-devel-rockylinux10@sha256:2c3c292102a601ef6ee9477a6fd0e6febe78127edfa2f31cb35f7ad25174d379 AS builder
 
 ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
@@ -61,7 +61,7 @@ RUN source /venv/main/bin/activate && \
     pip install --no-cache-dir -r ComfyUI-Workflow-Models-Downloader/requirements.txt
 
 # STAGE 3: Final Runtime
-FROM docker.io/nvidia/cuda:13.4.1-base-rockylinux10@sha256:d44913f84e8c2867884ea6a2fd489c5b29ce4d62efcbedb54e2f47205ae2e781 AS cuda
+FROM docker.io/nvidia/cuda:13.4.2-base-rockylinux10@sha256:1fb0d8642144780d823bd7c28a1416d987a602245bd043d9c53c913891cd1f23 AS cuda
 
 LABEL org.opencontainers.image.source="https://github.com/smerschjohann/containers/"
 LABEL org.opencontainers.image.description="Image for AI/ML development with CUDA 13.2.0 (Optimized)"
@@ -147,7 +147,7 @@ ADD --chown=user:user Caddyfile.tmpl landing.html /etc/caddy/
 ENTRYPOINT ["/init"]
 
 # STAGE 4: AI Toolkit Builder (separate venv for additive image)
-FROM docker.io/nvidia/cuda:13.4.1-devel-rockylinux10@sha256:cb81c6606a4cf1932c9d6621aec4c4bf788e5d976bedaa0b60abb8783eb4607f AS aitoolkit-builder
+FROM docker.io/nvidia/cuda:13.4.2-devel-rockylinux10@sha256:2c3c292102a601ef6ee9477a6fd0e6febe78127edfa2f31cb35f7ad25174d379 AS aitoolkit-builder
 
 ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl

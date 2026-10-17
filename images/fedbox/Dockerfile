@@ -20,10 +20,10 @@ ENV HELM_PLUGINS=/opt/helm-plugins
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v4.3.0
+ARG HELM_VERSION=v4.3.1
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.8.1
+ARG HELMFILE_VERSION=v1.8.2
 
 # renovate: datasource=github-releases depName=helmfile/vals
 ARG VALS_VERSION=v0.47.0
@@ -95,7 +95,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.141.0
+ARG VSCODE_VERSION=1.142.0
 
 USER root
 

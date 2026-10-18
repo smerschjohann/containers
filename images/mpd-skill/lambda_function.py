@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
+
 import os
 import sys
 import time
-import requests
-import logging
 import json
-import mimetypes
+import logging
+import random
 from urllib.parse import quote
 from contextlib import contextmanager
-
 from mpd import MPDClient
-from bottle import route, run, template, request, response, redirect, static_file, abort
 
-from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler
 from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import (
     AbstractRequestHandler, AbstractExceptionHandler,
@@ -20,52 +17,37 @@ from ask_sdk_core.dispatch_components import (
 from ask_sdk_core.utils import is_request_type, is_intent_name
 from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk_model import Response
+from ask_sdk_model.interfaces.audioplayer import (
+    PlayDirective, PlayBehavior, AudioItem, Stream,
+    StopDirective, ClearQueueDirective, ClearBehavior)
+from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler
 
 from alexa import util
 
-# Ensure common audio mimetypes are registered
-mimetypes.add_type('audio/flac', '.flac')
-mimetypes.add_type('audio/mpeg', '.mp3')
-mimetypes.add_type('audio/mp4', '.m4a')
-mimetypes.add_type('audio/ogg', '.ogg')
-
-sb = SkillBuilder()
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+# ######################### CONFIGURATION #########################
 
 client = MPDClient()
 
-# Configuration via environment variables (kept fully generic)
 MPD_HOST = os.getenv("MPD_HOST", "localhost")
 MPD_PORT = int(os.getenv("MPD_PORT", "6600"))
 
-# Base URL that Alexa uses to access streams on this service (e.g. https://jukebox.example.com)
-BASE_URL = os.getenv("BASE_URL")
 RADIO_URL = os.getenv("RADIO_URL")
 MPD_RADIO_URL = os.getenv("MPD_RADIO_URL")
 
-# Music directory (mounted into container for direct file streaming, e.g. /music)
-MUSIC_DIR = os.getenv("MUSIC_DIR")
-
-# Optional authentication token to secure the /song endpoints from public access
+# Optional authentication token to secure the /radio endpoint from public access
 AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 
-# Operating mode: "tracks" (direct song-by-song streaming) or "radio" (continuous MPD HTTP stream)
-# Defaults to "tracks" if MUSIC_DIR is set, otherwise falls back to "radio"
-STREAM_MODE = os.getenv("STREAM_MODE", "tracks" if MUSIC_DIR else "radio").lower()
+# Auto-queueing: automatically append random album or tracks when playlist reaches end
+AUTO_QUEUE_RANDOM = os.getenv("AUTO_QUEUE_RANDOM", "true").lower() in ("true", "1", "yes")
+AUTO_QUEUE_MODE = os.getenv("AUTO_QUEUE_MODE", "album").lower()  # "album" or "tracks"
 
-if not BASE_URL and RADIO_URL:
-    BASE_URL = RADIO_URL.rsplit('/', 1)[0]
+STREAM_MODE = "radio"
 
-# Ensure RADIO_URL ends with .mp3 for Alexa compatibility in radio mode
-if RADIO_URL and not RADIO_URL.endswith('.mp3'):
-    RADIO_URL_MP3 = RADIO_URL + '.mp3'
-else:
-    RADIO_URL_MP3 = RADIO_URL
-
-logger.info("Configured MPD Skill: mode=%s, mpd=%s:%s, music_dir=%s, base_url=%s, auth=%s",
-            STREAM_MODE, MPD_HOST, MPD_PORT, MUSIC_DIR, BASE_URL, bool(AUTH_TOKEN))
+logger.info("Configured MPD Skill (Radio/Stream Mode): mpd=%s:%s, radio_url=%s, auth=%s, auto_queue=%s (%s)",
+            MPD_HOST, MPD_PORT, RADIO_URL, bool(AUTH_TOKEN), AUTO_QUEUE_RANDOM, AUTO_QUEUE_MODE)
 
 
 @contextmanager
@@ -81,111 +63,135 @@ def connection():
             pass
 
 
-# ######################### SONG & QUEUE HELPERS #########################
+# ######################### HELPERS #########################
 
-def get_song_url(song):
-    """Generate the streaming URL for a song, including auth token if configured."""
-    song_id = song.get('id')
-    file_path = song.get('file', '')
-    safe_name = quote(os.path.basename(file_path))
-    query_str = f"?token={quote(AUTH_TOKEN)}" if AUTH_TOKEN else ""
-    if BASE_URL:
-        base = BASE_URL.rstrip('/')
-        return f"{base}/song/{song_id}/{safe_name}{query_str}"
-    return f"/song/{song_id}/{safe_name}{query_str}"
-
-
-def get_song_metadata(song):
-    """Return dictionary of metadata for Alexa AudioItem display."""
-    title = song.get('title') or os.path.splitext(os.path.basename(song.get('file', '')))[0]
-    artist = song.get('artist', '')
-    album = song.get('album', '')
-    if artist and album:
-        subtitle = f"{artist} - {album}"
-    else:
-        subtitle = artist or album
-    return {
-        "title": title,
-        "subtitle": subtitle,
-        "art_url": None
-    }
-
-
-def get_song_speech(song):
-    """Format speech description for a song."""
-    title = song.get('title')
-    artist = song.get('artist')
-    if title and artist:
-        return f"Spiele das Lied {title} von {artist}"
-    elif title:
-        return f"Spiele das Lied {title}"
-    return "Spiele nächsten Titel"
-
-
-def find_song_in_playlist(playlist, song_id):
-    """Find a song by its id in the playlist and return (index, song)."""
-    if not playlist or song_id is None:
-        return None, None
-    for idx, s in enumerate(playlist):
-        if str(s.get('id')) == str(song_id):
-            return idx, s
-    return None, None
-
-
-def get_current_or_first_song():
-    """Get the currently selected or first song in the playlist."""
-    with connection():
-        curr = client.currentsong()
-        if curr and 'id' in curr:
-            return curr
-        playlist = client.playlistinfo()
-        if playlist:
-            return playlist[0]
+def get_radio_url():
+    """Return radio URL with token query parameter if AUTH_TOKEN is set."""
+    if not RADIO_URL:
         return None
+    if AUTH_TOKEN and 'token=' not in RADIO_URL:
+        sep = '&' if '?' in RADIO_URL else '?'
+        return f"{RADIO_URL}{sep}token={quote(AUTH_TOKEN)}"
+    return RADIO_URL
 
 
-def get_next_song(current_song_id=None):
-    """Find the next song in the MPD queue after current_song_id."""
+def add_random_music_to_queue(count=1):
+    """Pick a random album or random tracks from MPD library and append to queue."""
     with connection():
-        playlist = client.playlistinfo()
-        if not playlist:
-            return None
+        try:
+            if AUTO_QUEUE_MODE == "album":
+                raw_albums = client.list('album')
+                clean_albums = []
+                for a in raw_albums:
+                    val = a.get('album') if isinstance(a, dict) else str(a)
+                    if val and val.strip():
+                        clean_albums.append(val.strip())
+                if clean_albums:
+                    chosen = random.choice(clean_albums)
+                    logger.info("Auto-queueing random album: %s", chosen)
+                    client.findadd('album', chosen)
+                    return True
 
-        if current_song_id is None:
-            curr = client.currentsong()
-            current_song_id = curr.get('id') if curr else None
+            # Fallback or "tracks" mode: pick random files
+            raw_files = client.list('file')
+            clean_files = []
+            for f in raw_files:
+                val = f.get('file') if isinstance(f, dict) else str(f)
+                if val and val.strip():
+                    clean_files.append(val.strip())
+            if clean_files:
+                sample = random.sample(clean_files, min(count * 5, len(clean_files)))
+                logger.info("Auto-queueing %d random tracks", len(sample))
+                for f in sample:
+                    client.add(f)
+                return True
+        except Exception as e:
+            logger.error("Failed to auto-queue random music: %s", e)
+    return False
 
-        if current_song_id is not None:
-            idx, _ = find_song_in_playlist(playlist, current_song_id)
-            if idx is not None and idx + 1 < len(playlist):
-                return playlist[idx + 1]
-            try:
-                status = client.status()
-                if status.get('repeat') == '1':
-                    return playlist[0]
-            except Exception:
-                pass
-            return None
-        return playlist[0]
 
-
-def get_previous_song(current_song_id=None):
-    """Find the previous song in the MPD queue before current_song_id."""
+def restore_last_music_or_album():
+    """
+    When the MPD queue is empty, restore playback by:
+    1. Loading the most recently modified stored playlist in MPD.
+    2. Or adding the most recently modified/added album directory from the music library.
+    3. Falling back to a random album or tracks from the library.
+    Returns (success: bool, description: str).
+    """
     with connection():
-        playlist = client.playlistinfo()
-        if not playlist:
-            return None
+        # 1. Try stored playlists (most recently modified)
+        try:
+            stored_playlists = client.listplaylists()
+            if stored_playlists:
+                sorted_playlists = sorted(
+                    stored_playlists,
+                    key=lambda p: p.get('last-modified', '') if isinstance(p, dict) else '',
+                    reverse=True
+                )
+                if sorted_playlists and isinstance(sorted_playlists[0], dict):
+                    chosen_pl = sorted_playlists[0].get('playlist')
+                    if chosen_pl:
+                        logger.info("Empty queue: loading last modified playlist: %s", chosen_pl)
+                        client.load(chosen_pl)
+                        return True, f"Wiedergabeliste {chosen_pl}"
+        except Exception as e:
+            logger.warning("Failed to check stored playlists: %s", e)
 
-        if current_song_id is None:
-            curr = client.currentsong()
-            current_song_id = curr.get('id') if curr else None
+        # 2. Try most recently added/modified directory in music library
+        try:
+            entries = client.lsinfo()
+            dirs = [e for e in entries if isinstance(e, dict) and 'directory' in e]
+            if dirs:
+                sorted_dirs = sorted(
+                    dirs,
+                    key=lambda d: d.get('last-modified', ''),
+                    reverse=True
+                )
+                if sorted_dirs and isinstance(sorted_dirs[0], dict):
+                    top_dir = sorted_dirs[0].get('directory')
+                    if top_dir:
+                        try:
+                            sub_entries = client.lsinfo(top_dir)
+                            sub_dirs = [s for s in sub_entries if isinstance(s, dict) and 'directory' in s]
+                            if sub_dirs:
+                                sorted_subs = sorted(
+                                    sub_dirs,
+                                    key=lambda s: s.get('last-modified', ''),
+                                    reverse=True
+                                )
+                                if sorted_subs and isinstance(sorted_subs[0], dict):
+                                    target_dir = sorted_subs[0].get('directory')
+                                else:
+                                    target_dir = top_dir
+                            else:
+                                target_dir = top_dir
+                        except Exception:
+                            target_dir = top_dir
 
-        if current_song_id is not None:
-            idx, _ = find_song_in_playlist(playlist, current_song_id)
-            if idx is not None and idx > 0:
-                return playlist[idx - 1]
-            return playlist[0]
-        return playlist[0]
+                        logger.info("Empty queue: adding latest modified album directory: %s", target_dir)
+                        client.add(target_dir)
+                        album_name = os.path.basename(target_dir)
+                        return True, f"Album {album_name}"
+        except Exception as e:
+            logger.warning("Failed to check newest directory: %s", e)
+
+        # 3. Fallback: random album from library
+        try:
+            raw_albums = client.list('album')
+            clean_albums = []
+            for a in raw_albums:
+                val = a.get('album') if isinstance(a, dict) else str(a)
+                if val and val.strip():
+                    clean_albums.append(val.strip())
+            if clean_albums:
+                chosen = random.choice(clean_albums)
+                logger.info("Empty queue: fallback adding random album: %s", chosen)
+                client.findadd('album', chosen)
+                return True, f"Album {chosen}"
+        except Exception as e:
+            logger.error("Failed to add fallback random album: %s", e)
+
+    return False, ""
 
 
 def get_slot_value(handler_input, slot_name):
@@ -235,11 +241,11 @@ def search_tracks(title=None, artist=None):
                     results = client.search('any', artist)
                 except Exception:
                     pass
-        return results
+        return results or []
 
 
 def search_album_tracks(album, artist=None):
-    """Search MPD library for tracks belonging to an album."""
+    """Search MPD library for all tracks of an album."""
     with connection():
         results = []
         if artist:
@@ -252,22 +258,24 @@ def search_album_tracks(album, artist=None):
                 results = client.search('album', album)
             except Exception:
                 pass
-        return results
+        return results or []
 
 
-# ######################### INTENT HANDLERS #########################
+# ######################### ALEXA SKILL BUILDER #########################
+
+sb = SkillBuilder()
+
 
 class CheckAudioInterfaceHandler(AbstractRequestHandler):
-    """Check if device supports audio play."""
+    """Check if device supports AudioPlayer interface."""
     def can_handle(self, handler_input):
-        if handler_input.request_envelope.context.system.device:
-            return handler_input.request_envelope.context.system.device.supported_interfaces.audio_player is None
-        return False
+        return (is_request_type("LaunchRequest")(handler_input) and
+                handler_input.request_envelope.context.system.device.supported_interfaces.audio_player is None)
 
     def handle(self, handler_input):
-        logger.info("In CheckAudioInterfaceHandler")
-        handler_input.response_builder.speak("Sorry, this skill is not supported on this device").set_should_end_session(True)
-        return handler_input.response_builder.response
+        return handler_input.response_builder.speak(
+            "Entschuldigung, dieses Gerät unterstützt keine Audiowiedergabe."
+        ).set_should_end_session(True).response
 
 
 class SkillEventHandler(AbstractRequestHandler):
@@ -288,47 +296,44 @@ class LaunchRequestOrPlayAudioHandler(AbstractRequestHandler):
                 is_intent_name("PlayAudio")(handler_input))
 
     def handle(self, handler_input):
-        logger.info("In LaunchRequestOrPlayAudioHandler (mode: %s)", STREAM_MODE)
+        logger.info("In LaunchRequestOrPlayAudioHandler")
+        url = get_radio_url()
+        if not url:
+            handler_input.response_builder.speak("RADIO_URL ist nicht konfiguriert.").set_should_end_session(True)
+            return handler_input.response_builder.response
 
-        if STREAM_MODE == "tracks":
-            song = get_current_or_first_song()
-            if not song:
-                handler_input.response_builder.speak("Die Wiedergabeliste ist leer.").set_should_end_session(True)
-                return handler_input.response_builder.response
+        speech = "ok"
+        with connection():
+            playlist = client.playlistinfo()
+            restored_what = None
+            if not playlist:
+                success, what = restore_last_music_or_album()
+                if success:
+                    restored_what = what
 
-            speech = get_song_speech(song)
-            logger.info("speak: %s", speech)
-            song_url = get_song_url(song)
-            token = str(song['id'])
-            metadata = get_song_metadata(song)
-            return util.play(url=song_url,
-                             offset=0,
-                             text="ok",
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            song = None
-            with connection():
+            try:
                 client.play()
-                time.sleep(1)
-                song = client.currentsong()
+            except Exception:
+                pass
 
-            if not song:
-                handler_input.response_builder.speak("Die Wiedergabeliste ist leer.").set_should_end_session(True)
-                return handler_input.response_builder.response
-            else:
-                try:
-                    speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-                    logger.info("speak: %s", speech)
-                except Exception:
-                    pass
-                return util.play(url=RADIO_URL_MP3,
-                                offset=0,
-                                text="ok",
-                                card_data=None,
-                                response_builder=handler_input.response_builder)
+            song = client.currentsong()
+            if song and song.get('title'):
+                title = song.get('title')
+                artist = song.get('artist', '')
+                by = f" von {artist}" if artist else ""
+                if restored_what:
+                    speech = f"Spiele {restored_what}. {title}{by}"
+                else:
+                    speech = f"Spiele das Lied {title}{by}"
+            elif restored_what:
+                speech = f"Spiele {restored_what}"
+
+        return util.play(url=url,
+                         offset=0,
+                         text=speech,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
 
 
 class QueueSongHandler(AbstractRequestHandler):
@@ -355,37 +360,18 @@ class QueueSongHandler(AbstractRequestHandler):
 
         match = tracks[0]
         file_path = match['file']
-
         with connection():
-            playlist_before = client.playlistinfo()
-            was_empty = len(playlist_before) == 0
             client.add(file_path)
-            playlist_after = client.playlistinfo()
-            new_song = playlist_after[-1] if playlist_after else None
 
         title = match.get('title') or song_title
         art = match.get('artist', '')
         speech_text = f"Ich habe {title}" + (f" von {art}" if art else "") + " zur Wiedergabeliste hinzugefügt."
-
-        # If queue was empty, start playback immediately
-        if STREAM_MODE == "tracks" and was_empty and new_song:
-            song_url = get_song_url(new_song)
-            token = str(new_song['id'])
-            metadata = get_song_metadata(new_song)
-            return util.play(url=song_url,
-                             offset=0,
-                             text=speech_text,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-
         handler_input.response_builder.speak(speech_text).set_should_end_session(True)
         return handler_input.response_builder.response
 
 
 class PlaySongHandler(AbstractRequestHandler):
-    """Handler for immediately playing a specific song."""
+    """Handler for immediately playing a specific song in MPD."""
     def can_handle(self, handler_input):
         return is_intent_name("PlaySongIntent")(handler_input)
 
@@ -395,12 +381,12 @@ class PlaySongHandler(AbstractRequestHandler):
         artist = get_slot_value(handler_input, "Artist")
 
         if not song_title:
-            handler_input.response_builder.speak("Welches Lied soll ich spielen?").set_should_end_session(False)
+            handler_input.response_builder.speak("Welches Lied möchtest du hören?").set_should_end_session(False)
             return handler_input.response_builder.response
 
         tracks = search_tracks(title=song_title, artist=artist)
         if not tracks:
-            msg = f"Ich konnte das Lied {song_title} nicht in der MPD-Bibliothek finden."
+            msg = f"Ich konnte das Lied {song_title} nicht finden."
             if artist:
                 msg = f"Ich konnte das Lied {song_title} von {artist} nicht finden."
             handler_input.response_builder.speak(msg).set_should_end_session(True)
@@ -408,40 +394,24 @@ class PlaySongHandler(AbstractRequestHandler):
 
         match = tracks[0]
         file_path = match['file']
-
         with connection():
             song_id = client.addid(file_path)
-            songs = client.playlistid(song_id)
-            song = songs[0] if songs else match
-            song['id'] = song_id
+            client.playid(song_id)
 
         title = match.get('title') or song_title
         art = match.get('artist', '')
-        speech = f"Spiele {title}" + (f" von {art}" if art else "")
-
-        if STREAM_MODE == "tracks":
-            song_url = get_song_url(song)
-            token = str(song_id)
-            metadata = get_song_metadata(song)
-            return util.play(url=song_url,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            with connection():
-                client.playid(song_id)
-            return util.play(url=RADIO_URL_MP3,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder)
+        speech_text = f"Spiele {title}" + (f" von {art}" if art else "")
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=speech_text,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
 
 
 class PlayAlbumHandler(AbstractRequestHandler):
-    """Handler for playing an album."""
+    """Handler for immediately playing a specific album in MPD."""
     def can_handle(self, handler_input):
         return is_intent_name("PlayAlbumIntent")(handler_input)
 
@@ -454,42 +424,30 @@ class PlayAlbumHandler(AbstractRequestHandler):
             handler_input.response_builder.speak("Welches Album möchtest du hören?").set_should_end_session(False)
             return handler_input.response_builder.response
 
-        tracks = search_album_tracks(album, artist=artist)
+        tracks = search_album_tracks(album=album, artist=artist)
         if not tracks:
-            handler_input.response_builder.speak(f"Ich konnte das Album {album} nicht finden.").set_should_end_session(True)
+            msg = f"Ich konnte das Album {album} nicht finden."
+            handler_input.response_builder.speak(msg).set_should_end_session(True)
             return handler_input.response_builder.response
 
         with connection():
             client.clear()
             for t in tracks:
                 client.add(t['file'])
-            playlist = client.playlistinfo()
-            first_song = playlist[0] if playlist else None
+            client.play()
 
-        speech = f"Spiele Album {album}" + (f" von {artist}" if artist else "")
-        if STREAM_MODE == "tracks" and first_song:
-            song_url = get_song_url(first_song)
-            token = str(first_song['id'])
-            metadata = get_song_metadata(first_song)
-            return util.play(url=song_url,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            with connection():
-                client.play(0)
-            return util.play(url=RADIO_URL_MP3,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder)
+        speech_text = f"Spiele Album {album}" + (f" von {artist}" if artist else "")
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=speech_text,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
 
 
 class PlayArtistHandler(AbstractRequestHandler):
-    """Handler for playing music by an artist."""
+    """Handler for playing songs by an artist in MPD."""
     def can_handle(self, handler_input):
         return is_intent_name("PlayArtistIntent")(handler_input)
 
@@ -498,7 +456,7 @@ class PlayArtistHandler(AbstractRequestHandler):
         artist = get_slot_value(handler_input, "Artist")
 
         if not artist:
-            handler_input.response_builder.speak("Welchen Künstler möchtest du hören?").set_should_end_session(False)
+            handler_input.response_builder.speak("Von welchem Künstler möchtest du Musik hören?").set_should_end_session(False)
             return handler_input.response_builder.response
 
         tracks = search_tracks(artist=artist)
@@ -508,90 +466,91 @@ class PlayArtistHandler(AbstractRequestHandler):
 
         with connection():
             client.clear()
-            for t in tracks[:100]:
+            for t in tracks[:50]:
                 client.add(t['file'])
-            playlist = client.playlistinfo()
-            first_song = playlist[0] if playlist else None
+            client.play()
 
-        speech = f"Spiele Musik von {artist}"
-        if STREAM_MODE == "tracks" and first_song:
-            song_url = get_song_url(first_song)
-            token = str(first_song['id'])
-            metadata = get_song_metadata(first_song)
-            return util.play(url=song_url,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            with connection():
-                client.play(0)
-            return util.play(url=RADIO_URL_MP3,
-                             offset=0,
-                             text=speech,
-                             card_data=None,
-                             response_builder=handler_input.response_builder)
+        speech_text = f"Spiele Musik von {artist}"
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=speech_text,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
 
 
 class ClearQueueHandler(AbstractRequestHandler):
-    """Handler for clearing the MPD queue."""
+    """Handler for clearing the MPD queue and stopping playback."""
     def can_handle(self, handler_input):
         return is_intent_name("ClearQueueIntent")(handler_input)
 
     def handle(self, handler_input):
         logger.info("In ClearQueueHandler")
         with connection():
-            try:
-                client.clear()
-            except Exception:
-                pass
+            client.clear()
+            client.stop()
         return util.stop("Die Wiedergabeliste wurde geleert.", handler_input.response_builder)
 
 
 class QueueStatusHandler(AbstractRequestHandler):
-    """Handler for reporting queue status."""
+    """Handler for speaking the current song and queue status."""
     def can_handle(self, handler_input):
         return is_intent_name("QueueStatusIntent")(handler_input)
 
     def handle(self, handler_input):
         logger.info("In QueueStatusHandler")
         with connection():
+            song = client.currentsong()
             playlist = client.playlistinfo()
-            curr = client.currentsong()
+
         count = len(playlist)
-        if count == 0:
-            speech = "Die Wiedergabeliste ist aktuell leer."
+        if not count:
+            with connection():
+                success, what = restore_last_music_or_album()
+                if success:
+                    try:
+                        client.play()
+                    except Exception:
+                        pass
+                    song = client.currentsong()
+                    title = song.get('title') if song else ""
+                    artist = song.get('artist', '') if song else ""
+                    by = f" von {artist}" if artist else ""
+                    if title:
+                        msg = f"Die Wiedergabeliste war leer. Spiele {what}: {title}{by}."
+                    else:
+                        msg = f"Die Wiedergabeliste war leer. Spiele {what}."
+                    url = get_radio_url()
+                    return util.play(url=url,
+                                     offset=0,
+                                     text=msg,
+                                     card_data=None,
+                                     response_builder=handler_input.response_builder,
+                                     token="radio_stream")
+                else:
+                    msg = "Die Wiedergabeliste ist leer und es konnte keine Musik in der Bibliothek gefunden werden."
+        elif song and song.get('title'):
+            title = song.get('title')
+            artist = song.get('artist', '')
+            by = f" von {artist}" if artist else ""
+            msg = f"Es sind {count} Lieder in der Wiedergabeliste. Gerade läuft {title}{by}."
         else:
-            curr_title = curr.get('title') if curr else None
-            curr_artist = curr.get('artist') if curr else None
-            if curr_title and curr_artist:
-                speech = f"In der Wiedergabeliste sind {count} Lieder. Aktuell läuft {curr_title} von {curr_artist}."
-            elif curr_title:
-                speech = f"In der Wiedergabeliste sind {count} Lieder. Aktuell läuft {curr_title}."
-            else:
-                speech = f"In der Wiedergabeliste sind {count} Lieder."
-        handler_input.response_builder.speak(speech).set_should_end_session(False)
+            msg = f"Es sind {count} Lieder in der Wiedergabeliste."
+
+        handler_input.response_builder.speak(msg).set_should_end_session(True)
         return handler_input.response_builder.response
 
 
 class HelpIntentHandler(AbstractRequestHandler):
-    """Handler for providing help information to user."""
+    """Handler for help intent."""
     def can_handle(self, handler_input):
         return is_intent_name("AMAZON.HelpIntent")(handler_input)
 
     def handle(self, handler_input):
         logger.info("In HelpIntentHandler")
-        speech = "Dies ist ein MPD Player. Wähle Lieder in deiner MPD-App aus und steuere die Wiedergabe per Sprache."
-        try:
-            with connection():
-                song = client.currentsong()
-                if song and 'title' in song:
-                    speech = f"In der Playlist ausgewählt ist {song['title']} von {song.get('artist', 'Unbekannt')}"
-        except Exception:
-            pass
-
+        speech = ("Du kannst sagen: spiele Musik, nächstes Lied, vorheriges Lied, "
+                  "füge ein Lied hinzu, oder frage was gerade läuft.")
         handler_input.response_builder.speak(speech).set_should_end_session(False)
         return handler_input.response_builder.response
 
@@ -614,61 +573,65 @@ class NextOrPreviousIntentHandler(AbstractRequestHandler):
                 is_intent_name("AMAZON.PreviousIntent")(handler_input))
 
     def handle(self, handler_input):
-        logger.info("In NextOrPreviousIntentHandler (mode: %s)", STREAM_MODE)
+        logger.info("In NextOrPreviousIntentHandler")
         is_next = is_intent_name("AMAZON.NextIntent")(handler_input)
-
-        if STREAM_MODE == "tracks":
-            current_token = None
+        with connection():
             try:
-                current_token = handler_input.request_envelope.context.audio_player.token
-            except Exception:
-                pass
-
-            if is_next:
-                song = get_next_song(current_token)
-            else:
-                song = get_previous_song(current_token)
-
-            if not song:
-                speech = "Das Ende der Wiedergabeliste ist erreicht." if is_next else "Der Anfang der Wiedergabeliste ist erreicht."
-                handler_input.response_builder.speak(speech=speech).set_should_end_session(True)
-                return handler_input.response_builder.response
-
-            song_url = get_song_url(song)
-            token = str(song['id'])
-            metadata = get_song_metadata(song)
-            speech = get_song_speech(song)
-            logger.info("speak: %s", speech)
-
-            return util.play(url=song_url,
-                             offset=0,
-                             text=None,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            with connection():
+                if is_next:
+                    status = client.status()
+                    song_pos = int(status.get('song', 0))
+                    playlist_len = int(status.get('playlistlength', 0))
+                    if song_pos + 1 >= playlist_len and AUTO_QUEUE_RANDOM:
+                        add_random_music_to_queue()
+                    client.next()
+                else:
+                    client.previous()
+            except Exception as e:
+                logger.error("error executing next/prev: %s", e)
                 try:
-                    if is_next:
-                        client.next()
-                    else:
-                        client.previous()
-                except Exception as e:
-                    logger.error("error executing: %s", e)
                     client.play()
-
-                time.sleep(0.1)
-                song = client.currentsong()
-                speech = "ok"
-                try:
-                    speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-                    logger.info("speak: %s", speech)
                 except Exception:
                     pass
 
-                handler_input.response_builder.speak(speech=speech).set_should_end_session(True)
-            return handler_input.response_builder.response
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=None,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
+
+
+class NextOrPreviousCommandHandler(AbstractRequestHandler):
+    """Handler for Next or Previous command from hardware buttons."""
+    def can_handle(self, handler_input):
+        return (is_request_type("PlaybackController.NextCommandIssued")(handler_input) or
+                is_request_type("PlaybackController.PreviousCommandIssued")(handler_input))
+
+    def handle(self, handler_input):
+        logger.info("In NextOrPreviousCommandHandler")
+        is_next = is_request_type("PlaybackController.NextCommandIssued")(handler_input)
+        with connection():
+            try:
+                if is_next:
+                    status = client.status()
+                    song_pos = int(status.get('song', 0))
+                    playlist_len = int(status.get('playlistlength', 0))
+                    if song_pos + 1 >= playlist_len and AUTO_QUEUE_RANDOM:
+                        add_random_music_to_queue()
+                    client.next()
+                else:
+                    client.previous()
+            except Exception as e:
+                logger.error("error executing next/prev command: %s", e)
+
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=None,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
 
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
@@ -681,275 +644,12 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         logger.info("In CancelOrStopIntentHandler")
-        if STREAM_MODE != "tracks":
-            with connection():
-                try:
-                    client.stop()
-                except Exception:
-                    pass
-        return util.stop("Auf Wiedersehen!", handler_input.response_builder)
-
-
-class ResumeIntentHandler(AbstractRequestHandler):
-    """Handler for resume intent."""
-    def can_handle(self, handler_input):
-        return is_intent_name("AMAZON.ResumeIntent")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In ResumeIntentHandler (mode: %s)", STREAM_MODE)
-        if STREAM_MODE == "tracks":
-            current_token = None
-            offset = 0
+        with connection():
             try:
-                audio_player = handler_input.request_envelope.context.audio_player
-                current_token = audio_player.token
-                offset = audio_player.offset_in_milliseconds or 0
+                client.stop()
             except Exception:
                 pass
-
-            song = None
-            if current_token:
-                with connection():
-                    songs = client.playlistid(current_token)
-                    if songs:
-                        song = songs[0]
-            if not song:
-                song = get_current_or_first_song()
-
-            if not song:
-                handler_input.response_builder.speak("Die Wiedergabeliste ist leer.").set_should_end_session(True)
-                return handler_input.response_builder.response
-
-            song_url = get_song_url(song)
-            token = str(song['id'])
-            metadata = get_song_metadata(song)
-            return util.play(url=song_url,
-                             offset=offset,
-                             text=None,
-                             card_data=None,
-                             response_builder=handler_input.response_builder,
-                             token=token,
-                             metadata=metadata)
-        else:
-            with connection():
-                song = client.currentsong()
-                speech = "ok"
-                try:
-                    speech = f"Spiele das Lied {song['title']} von {song['artist']}"
-                    logger.info("speak: %s", speech)
-                except Exception:
-                    pass
-            return util.play(
-                url=RADIO_URL_MP3, offset=0,
-                text=speech, card_data=None,
-                response_builder=handler_input.response_builder)
-
-
-class StartOverIntentHandler(AbstractRequestHandler):
-    """Handler for start over, loop on/off, shuffle on/off intent."""
-    def can_handle(self, handler_input):
-        return (is_intent_name("AMAZON.StartOverIntent")(handler_input) or
-                is_intent_name("AMAZON.LoopOnIntent")(handler_input) or
-                is_intent_name("AMAZON.LoopOffIntent")(handler_input) or
-                is_intent_name("AMAZON.ShuffleOnIntent")(handler_input) or
-                is_intent_name("AMAZON.ShuffleOffIntent")(handler_input))
-
-    def handle(self, handler_input):
-        logger.info("In StartOverIntentHandler")
-        if is_intent_name("AMAZON.StartOverIntent")(handler_input):
-            if STREAM_MODE == "tracks":
-                current_token = None
-                try:
-                    current_token = handler_input.request_envelope.context.audio_player.token
-                except Exception:
-                    pass
-                song = None
-                if current_token:
-                    with connection():
-                        songs = client.playlistid(current_token)
-                        if songs:
-                            song = songs[0]
-                if not song:
-                    song = get_current_or_first_song()
-                if song:
-                    return util.play(url=get_song_url(song),
-                                     offset=0,
-                                     text=None,
-                                     card_data=None,
-                                     response_builder=handler_input.response_builder,
-                                     token=str(song['id']),
-                                     metadata=get_song_metadata(song))
-
-        speech = "Diese Funktion wird im aktuellen Modus nicht unterstützt."
-        return handler_input.response_builder.speak(speech).response
-
-
-# ######################### AUDIOPLAYER INTERFACE HANDLERS #########################
-
-class PlaybackStartedHandler(AbstractRequestHandler):
-    """AudioPlayer.PlaybackStarted Directive received."""
-    def can_handle(self, handler_input):
-        return is_request_type("AudioPlayer.PlaybackStarted")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlaybackStartedHandler")
-        request = handler_input.request_envelope.request
-        token = getattr(request, 'token', None)
-        logger.info("Playback started for token: %s", token)
-
-        # Synchronize MPD active song pointer with Alexa playback
-        if STREAM_MODE == "tracks" and token and token.isdigit():
-            try:
-                with connection():
-                    client.seekid(int(token), 0)
-            except Exception as e:
-                logger.debug("Could not seekid in MPD: %s", e)
-
-        return handler_input.response_builder.response
-
-
-class PlaybackFinishedHandler(AbstractRequestHandler):
-    """AudioPlayer.PlaybackFinished Directive received."""
-    def can_handle(self, handler_input):
-        return is_request_type("AudioPlayer.PlaybackFinished")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlaybackFinishedHandler")
-        return handler_input.response_builder.response
-
-
-class PlaybackStoppedHandler(AbstractRequestHandler):
-    """AudioPlayer.PlaybackStopped Directive received."""
-    def can_handle(self, handler_input):
-        return is_request_type("AudioPlayer.PlaybackStopped")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlaybackStoppedHandler")
-        return handler_input.response_builder.response
-
-
-class PlaybackNearlyFinishedHandler(AbstractRequestHandler):
-    """AudioPlayer.PlaybackNearlyFinished Directive received."""
-    def can_handle(self, handler_input):
-        return is_request_type("AudioPlayer.PlaybackNearlyFinished")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlaybackNearlyFinishedHandler (mode: %s)", STREAM_MODE)
-        request = handler_input.request_envelope.request
-
-        if STREAM_MODE == "tracks":
-            current_token = getattr(request, 'token', None)
-            next_song = get_next_song(current_token)
-            if next_song:
-                next_url = get_song_url(next_song)
-                next_token = str(next_song['id'])
-                metadata = get_song_metadata(next_song)
-                logger.info("Enqueuing next track: %s (id: %s)", next_song.get('title'), next_token)
-                return util.play_later(
-                    url=next_url,
-                    card_data=None,
-                    response_builder=handler_input.response_builder,
-                    token=next_token,
-                    expected_previous_token=current_token,
-                    metadata=metadata
-                )
-            else:
-                logger.info("End of playlist reached, nothing more to enqueue.")
-                return handler_input.response_builder.response
-        else:
-            return util.play_later(
-                url=RADIO_URL_MP3,
-                card_data=util.audio_data(request)["card"],
-                response_builder=handler_input.response_builder)
-
-
-class PlaybackFailedHandler(AbstractRequestHandler):
-    """AudioPlayer.PlaybackFailed Directive received."""
-    def can_handle(self, handler_input):
-        return is_request_type("AudioPlayer.PlaybackFailed")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlaybackFailedHandler")
-        request = handler_input.request_envelope.request
-        logger.error("Playback failed: %s, token: %s",
-                     getattr(request, 'error', None), getattr(request, 'token', None))
         return util.stop(text=None, response_builder=handler_input.response_builder)
-
-
-class ExceptionEncounteredHandler(AbstractRequestHandler):
-    """Handler to handle exceptions from responses sent by AudioPlayer."""
-    def can_handle(self, handler_input):
-        return is_request_type("System.ExceptionEncountered")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("\n**************** EXCEPTION *******************")
-        logger.info(handler_input.request_envelope)
-        return handler_input.response_builder.response
-
-
-# ######################### PLAYBACK CONTROLLER HANDLERS #########################
-
-class PlayCommandHandler(AbstractRequestHandler):
-    """Handler for Play command from hardware buttons or touch control."""
-    def can_handle(self, handler_input):
-        return is_request_type("PlaybackController.PlayCommandIssued")(handler_input)
-
-    def handle(self, handler_input):
-        logger.info("In PlayCommandHandler")
-        if STREAM_MODE == "tracks":
-            song = get_current_or_first_song()
-            if song:
-                song_url = get_song_url(song)
-                token = str(song['id'])
-                metadata = get_song_metadata(song)
-                return util.play(url=song_url,
-                                 offset=0,
-                                 text="ok",
-                                 card_data=None,
-                                 response_builder=handler_input.response_builder,
-                                 token=token,
-                                 metadata=metadata)
-            return handler_input.response_builder.response
-        else:
-            return util.play(url=RADIO_URL_MP3,
-                             offset=0,
-                             text="ok",
-                             card_data=None,
-                             response_builder=handler_input.response_builder)
-
-
-class NextOrPreviousCommandHandler(AbstractRequestHandler):
-    """Handler for Next or Previous command from hardware buttons."""
-    def can_handle(self, handler_input):
-        return (is_request_type("PlaybackController.NextCommandIssued")(handler_input) or
-                is_request_type("PlaybackController.PreviousCommandIssued")(handler_input))
-
-    def handle(self, handler_input):
-        logger.info("In NextOrPreviousCommandHandler")
-        is_next = is_request_type("PlaybackController.NextCommandIssued")(handler_input)
-
-        if STREAM_MODE == "tracks":
-            current_token = None
-            try:
-                current_token = handler_input.request_envelope.context.audio_player.token
-            except Exception:
-                pass
-            if is_next:
-                song = get_next_song(current_token)
-            else:
-                song = get_previous_song(current_token)
-            if song:
-                song_url = get_song_url(song)
-                token = str(song['id'])
-                metadata = get_song_metadata(song)
-                return util.play(url=song_url,
-                                 offset=0,
-                                 text=None,
-                                 card_data=None,
-                                 response_builder=handler_input.response_builder,
-                                 token=token,
-                                 metadata=metadata)
-        return handler_input.response_builder.response
 
 
 class PauseCommandHandler(AbstractRequestHandler):
@@ -959,7 +659,138 @@ class PauseCommandHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         logger.info("In PauseCommandHandler")
+        with connection():
+            try:
+                client.pause(1)
+            except Exception:
+                pass
         return util.stop(text=None, response_builder=handler_input.response_builder)
+
+
+class ResumeIntentHandler(AbstractRequestHandler):
+    """Handler for resume intent."""
+    def can_handle(self, handler_input):
+        return is_intent_name("AMAZON.ResumeIntent")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("In ResumeIntentHandler")
+        speech = None
+        with connection():
+            playlist = client.playlistinfo()
+            if not playlist:
+                success, what = restore_last_music_or_album()
+                if success:
+                    speech = f"Spiele {what}"
+            try:
+                client.play()
+            except Exception:
+                pass
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=speech,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
+
+
+class StartOverIntentHandler(AbstractRequestHandler):
+    """Handler for start over intent."""
+    def can_handle(self, handler_input):
+        return is_intent_name("AMAZON.StartOverIntent")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("In StartOverIntentHandler")
+        with connection():
+            try:
+                client.seekcur(0)
+            except Exception:
+                pass
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=None,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
+
+
+class PlayCommandHandler(AbstractRequestHandler):
+    """Handler for hardware Play command."""
+    def can_handle(self, handler_input):
+        return is_request_type("PlaybackController.PlayCommandIssued")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("In PlayCommandHandler")
+        with connection():
+            playlist = client.playlistinfo()
+            if not playlist:
+                restore_last_music_or_album()
+            try:
+                client.play()
+            except Exception:
+                pass
+        url = get_radio_url()
+        return util.play(url=url,
+                         offset=0,
+                         text=None,
+                         card_data=None,
+                         response_builder=handler_input.response_builder,
+                         token="radio_stream")
+
+
+class PlaybackStartedHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("AudioPlayer.PlaybackStarted")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("Playback started")
+        return handler_input.response_builder.response
+
+
+class PlaybackFinishedHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("AudioPlayer.PlaybackFinished")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("Playback finished")
+        return handler_input.response_builder.response
+
+
+class PlaybackStoppedHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("AudioPlayer.PlaybackStopped")(handler_input)
+
+    def handle(self, handler_input):
+        logger.info("Playback stopped")
+        return handler_input.response_builder.response
+
+
+class PlaybackNearlyFinishedHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("AudioPlayer.PlaybackNearlyFinished")(handler_input)
+
+    def handle(self, handler_input):
+        # In continuous radio mode, the stream does not end
+        return handler_input.response_builder.response
+
+
+class PlaybackFailedHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("AudioPlayer.PlaybackFailed")(handler_input)
+
+    def handle(self, handler_input):
+        logger.warning("Playback failed: %s", handler_input.request_envelope.request)
+        return handler_input.response_builder.response
+
+
+class ExceptionEncounteredHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input):
+        return is_request_type("System.ExceptionEncountered")(handler_input)
+
+    def handle(self, handler_input):
+        logger.error("Exception encountered: %s", handler_input.request_envelope.request)
+        return handler_input.response_builder.response
 
 
 # ######################### INTERCEPTORS #########################
@@ -1009,6 +840,9 @@ webservice_handler = WebserviceSkillHandler(skill=sb.create())
 
 # ######################### WEBSERVER #########################
 
+from bottle import route, run, request, response, redirect
+
+
 def pretty_print_json(json_data):
     try:
         logger.debug(json.dumps(json.loads(json_data), indent=2))
@@ -1029,7 +863,6 @@ def check_auth():
     if header_token and header_token == AUTH_TOKEN:
         return True
     # 3. HTTP Basic Auth: Authorization: Basic <base64(user:password)>
-    # e.g. https://alexa:<token>@domain/song/...
     if request.auth:
         user, pwd = request.auth
         if pwd == AUTH_TOKEN or user == AUTH_TOKEN:
@@ -1042,53 +875,11 @@ def check_auth():
     return False
 
 
-@route('/song/<song_id:int>', method=["GET", "HEAD"])
-@route('/song/<song_id:int>/<filename:path>', method=["GET", "HEAD"])
-def serve_song(song_id, filename=None):
-    """Serve a music file directly for Alexa AudioPlayer with Range and Auth support."""
-    if not check_auth():
-        logger.warning("Unauthorized access to song %s from %s", song_id, request.remote_addr)
-        response.status = 403
-        return "Forbidden: Invalid or missing authentication token"
-
-    if not MUSIC_DIR:
-        response.status = 404
-        return "MUSIC_DIR is not configured"
-
-    try:
-        with connection():
-            songs = client.playlistid(song_id)
-    except Exception as e:
-        logger.error("MPD error retrieving song %s: %s", song_id, e)
-        response.status = 500
-        return "MPD connection error"
-
-    if not songs:
-        response.status = 404
-        return "Song not found in playlist"
-
-    file_rel_path = songs[0].get('file')
-    if not file_rel_path:
-        response.status = 404
-        return "No file path for song"
-
-    logger.info("Serving song id %s: %s", song_id, file_rel_path)
-    return static_file(file_rel_path, root=MUSIC_DIR)
-
-
 @route('/radio', method=["GET", "HEAD"])
-def radio():
-    if not check_auth():
-        response.status = 403
-        return "Forbidden: Invalid or missing authentication token"
-    if MPD_RADIO_URL:
-        return redirect(MPD_RADIO_URL, 302)
-    response.status = 404
-    return "MPD_RADIO_URL not configured"
-
-
+@route('/radio.flac', method=["GET", "HEAD"])
 @route('/radio.mp3', method=["GET", "HEAD"])
-def radio_mp3():
+def radio():
+    """Stream endpoint redirecting to the internal MPD HTTP streaming output."""
     if not check_auth():
         response.status = 403
         return "Forbidden: Invalid or missing authentication token"

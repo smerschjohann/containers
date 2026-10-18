@@ -6,6 +6,7 @@ import time
 import json
 import logging
 import random
+import threading
 from urllib.parse import quote
 from contextlib import contextmanager
 from mpd import MPDClient
@@ -71,17 +72,38 @@ logger.info("Configured MPD Skill (Radio/Stream Mode): mpd=%s:%s, radio_url=%s, 
             heos_config["enabled"], heos_config["host"])
 
 
+_mpd_lock = threading.RLock()
+_local = threading.local()
+
+
 @contextmanager
 def connection():
-    try:
-        client.connect(MPD_HOST, MPD_PORT)
-        yield
-    finally:
+    """Re-entrant and thread-safe context manager for MPD client connections."""
+    with _mpd_lock:
+        depth = getattr(_local, "connection_depth", 0)
+        if depth == 0:
+            try:
+                client.connect(MPD_HOST, MPD_PORT)
+            except Exception:
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+                client.connect(MPD_HOST, MPD_PORT)
+        _local.connection_depth = depth + 1
         try:
-            client.close()
-            client.disconnect()
-        except Exception:
-            pass
+            yield client
+        finally:
+            _local.connection_depth -= 1
+            if _local.connection_depth == 0:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
 
 
 # ######################### HELPERS #########################

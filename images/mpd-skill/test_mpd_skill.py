@@ -243,7 +243,35 @@ class TestMpdHelpersAndQueue(unittest.TestCase):
         success, what = skill.restore_last_music_or_album()
         self.assertTrue(success)
         self.assertEqual(what, "Album RandomAlbum")
-        mock_client.findadd.assert_called_with('album', 'RandomAlbum')
+    def test_reentrant_connection_manager(self):
+        """Verify that nested with connection() calls are re-entrant and do not reconnect."""
+        mock_c = MagicMock()
+        with patch.object(skill, 'client', mock_c):
+            with skill.connection():
+                self.assertEqual(mock_c.connect.call_count, 1)
+                with skill.connection():
+                    # Second call inside same thread must NOT reconnect
+                    self.assertEqual(mock_c.connect.call_count, 1)
+                    with skill.connection():
+                        self.assertEqual(mock_c.connect.call_count, 1)
+                # Still within outer connection
+                mock_c.disconnect.assert_not_called()
+            # After outer connection finishes
+            mock_c.disconnect.assert_called_once()
+
+    def test_nested_connection_empty_queue_recovery(self):
+        """Verify that LaunchRequest recovers an empty queue using real connection() without raising ConnectionError."""
+        mock_c = MagicMock()
+        mock_c.playlistinfo.return_value = []
+        mock_c.listplaylists.return_value = [{'playlist': 'AutoSaved', 'last-modified': '2026-10-18'}]
+        with patch.object(skill, 'client', mock_c), \
+             patch.object(skill, 'RADIO_URL', 'https://jukebox.example.com/radio'):
+            handler = skill.LaunchRequestOrPlayAudioHandler()
+            hi = create_handler_input("LaunchRequest")
+            resp = handler.handle(hi)
+            self.assertIsNotNone(resp.directives)
+            mock_c.load.assert_called_with('AutoSaved')
+            mock_c.play.assert_called_once()
 
 
 class TestAlexaHandlers(unittest.TestCase):

@@ -1,0 +1,204 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "mpd player",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": [
+            "abbrechen"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": [
+            "hilfe",
+            "was kann ich tun",
+            "wie funktioniert das"
+          ]
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": [
+            "stop",
+            "anhalten",
+            "aufhören",
+            "beenden"
+          ]
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": [
+            "pause",
+            "pausieren"
+          ]
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": [
+            "fortsetzen",
+            "weiterspielen",
+            "weiter"
+          ]
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": [
+            "nächstes lied",
+            "nächster titel",
+            "weiter"
+          ]
+        },
+        {
+          "name": "AMAZON.PreviousIntent",
+          "samples": [
+            "vorheriges lied",
+            "vorheriger titel",
+            "zurück"
+          ]
+        },
+        {
+          "name": "AMAZON.StartOverIntent",
+          "samples": [
+            "von vorne",
+            "lied von vorne"
+          ]
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "PlayAudio",
+          "samples": [
+            "spiele musik",
+            "starte wiedergabe",
+            "spiele meine playlist",
+            "abspielen"
+          ]
+        },
+        {
+          "name": "QueueSongIntent",
+          "slots": [
+            {
+              "name": "Song",
+              "type": "AMAZON.MusicRecording",
+              "samples": [
+                "{Song}"
+              ]
+            },
+            {
+              "name": "Artist",
+              "type": "AMAZON.MusicGroup",
+              "samples": [
+                "{Artist}"
+              ]
+            }
+          ],
+          "samples": [
+            "füge {Song} hinzu",
+            "füge {Song} von {Artist} hinzu",
+            "setze {Song} auf die playlist",
+            "setze {Song} von {Artist} auf die playlist",
+            "hänge {Song} an",
+            "hänge {Song} von {Artist} an",
+            "reihe das lied {Song} ein",
+            "reihe das lied {Song} von {Artist} ein",
+            "füge das lied {Song} hinzu",
+            "füge das lied {Song} von {Artist} hinzu"
+          ]
+        },
+        {
+          "name": "PlaySongIntent",
+          "slots": [
+            {
+              "name": "Song",
+              "type": "AMAZON.MusicRecording",
+              "samples": [
+                "{Song}"
+              ]
+            },
+            {
+              "name": "Artist",
+              "type": "AMAZON.MusicGroup",
+              "samples": [
+                "{Artist}"
+              ]
+            }
+          ],
+          "samples": [
+            "spiele das lied {Song}",
+            "spiele das lied {Song} von {Artist}",
+            "spiele lied {Song}",
+            "spiele lied {Song} von {Artist}",
+            "spiele {Song}",
+            "spiele {Song} von {Artist}"
+          ]
+        },
+        {
+          "name": "PlayAlbumIntent",
+          "slots": [
+            {
+              "name": "Album",
+              "type": "AMAZON.MusicAlbum",
+              "samples": [
+                "{Album}"
+              ]
+            },
+            {
+              "name": "Artist",
+              "type": "AMAZON.MusicGroup",
+              "samples": [
+                "{Artist}"
+              ]
+            }
+          ],
+          "samples": [
+            "spiele das album {Album}",
+            "spiele das album {Album} von {Artist}",
+            "spiele album {Album}",
+            "spiele album {Album} von {Artist}"
+          ]
+        },
+        {
+          "name": "PlayArtistIntent",
+          "slots": [
+            {
+              "name": "Artist",
+              "type": "AMAZON.MusicGroup",
+              "samples": [
+                "{Artist}"
+              ]
+            }
+          ],
+          "samples": [
+            "spiele musik von {Artist}",
+            "spiele künstler {Artist}",
+            "spiele songs von {Artist}",
+            "spiele lieder von {Artist}"
+          ]
+        },
+        {
+          "name": "ClearQueueIntent",
+          "samples": [
+            "leere die wiedergabeliste",
+            "lösche die playlist",
+            "wiedergabeliste leeren",
+            "playlist löschen",
+            "warteschlange leeren"
+          ]
+        },
+        {
+          "name": "QueueStatusIntent",
+          "samples": [
+            "was ist in der playlist",
+            "was ist in der wiedergabeliste",
+            "wieviele lieder sind in der playlist",
+            "was läuft gerade",
+            "welches lied läuft"
+          ]
+        }
+      ]
+    }
+  }
+}

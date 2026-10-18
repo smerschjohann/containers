@@ -13,7 +13,7 @@ from ask_sdk_core.handler_input import HandlerInput
 
 
 
-def play(url, offset, text, card_data, response_builder):
+def play(url, offset, text, card_data, response_builder, token="radio_stream", metadata=None):
     """Function to play audio.
 
     Using the function to begin playing audio when:
@@ -25,27 +25,40 @@ def play(url, offset, text, card_data, response_builder):
     REPLACE_ALL: Immediately begin playback of the specified stream,
     and replace current and enqueued streams.
     """
-    # type: (str, int, str, Dict, ResponseFactory) -> Response
+    # type: (str, int, str, Dict, ResponseFactory, str, Optional[Dict]) -> Response
     if card_data:
         response_builder.set_card(
             StandardCard(
                 title=card_data["title"], text=card_data["text"],
                 image=Image(
-                    small_image_url=card_data["small_image_url"],
-                    large_image_url=card_data["large_image_url"])
+                    small_image_url=card_data.get("small_image_url"),
+                    large_image_url=card_data.get("large_image_url"))
             )
         )
 
-    # Using URL as token as they are all unique
+    audio_metadata = None
+    if metadata:
+        art_image = None
+        if metadata.get("art_url"):
+            art_image = Image(
+                small_image_url=metadata["art_url"],
+                large_image_url=metadata["art_url"]
+            )
+        audio_metadata = AudioItemMetadata(
+            title=metadata.get("title"),
+            subtitle=metadata.get("subtitle"),
+            art=art_image
+        )
+
     response_builder.add_directive(
         PlayDirective(
             play_behavior=PlayBehavior.REPLACE_ALL,
             audio_item=AudioItem(
                 stream=Stream(
-                    token="radio_stream",  # Unique token for the stream not required
+                    token=token,
                     url=url,
                     offset_in_milliseconds=offset),
-                metadata=None
+                metadata=audio_metadata
             )
         )
     ).set_should_end_session(True)
@@ -76,21 +89,40 @@ def clear(response_builder):
     return response_builder.response
 
 
-def play_later(url, card_data, response_builder):
+def play_later(url, card_data, response_builder, token=None, expected_previous_token=None, metadata=None):
     """Function to play audio later (enqueue).
     
     Using the function to enqueue audio when:
         - PlaybackNearlyFinished request received.
     """
-    # type: (str, Dict, ResponseFactory) -> Response
+    # type: (str, Dict, ResponseFactory, Optional[str], Optional[str], Optional[Dict]) -> Response
+    if token is None:
+        token = url
+    if expected_previous_token is None:
+        expected_previous_token = token
+
     if card_data:
         response_builder.set_card(
             StandardCard(
                 title=card_data["title"], text=card_data["text"],
                 image=Image(
-                    small_image_url=card_data["small_image_url"],
-                    large_image_url=card_data["large_image_url"])
+                    small_image_url=card_data.get("small_image_url"),
+                    large_image_url=card_data.get("large_image_url"))
             )
+        )
+
+    audio_metadata = None
+    if metadata:
+        art_image = None
+        if metadata.get("art_url"):
+            art_image = Image(
+                small_image_url=metadata["art_url"],
+                large_image_url=metadata["art_url"]
+            )
+        audio_metadata = AudioItemMetadata(
+            title=metadata.get("title"),
+            subtitle=metadata.get("subtitle"),
+            art=art_image
         )
 
     response_builder.add_directive(
@@ -98,11 +130,11 @@ def play_later(url, card_data, response_builder):
             play_behavior=PlayBehavior.ENQUEUE,
             audio_item=AudioItem(
                 stream=Stream(
-                    token=url,
+                    token=token,
                     url=url,
                     offset_in_milliseconds=0,
-                    expected_previous_token=url),
-                metadata=None
+                    expected_previous_token=expected_previous_token),
+                metadata=audio_metadata
             )
         )
     ).set_should_end_session(True)

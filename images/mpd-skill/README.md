@@ -1,16 +1,29 @@
 # Alexa Skill (MPD Player)
 
-This is a simple Alexa Skill that can start and stop music on an MPD server.
+This is an Alexa Skill that integrates with an MPD (Music Player Daemon) server to play music on Amazon Echo / Alexa devices.
 
-It will stream the music that MPD offers at the stream.
+It supports two modes of playback:
+1. **Track-by-track mode (`STREAM_MODE=tracks`, default when `MUSIC_DIR` is set)**: Directly streams individual music files (MP3, FLAC, M4A, etc.) with HTTP Range request support. Alexa displays title, artist, album, and track progress, and advances seamlessly through the MPD playlist queue. MPD's active song pointer stays synchronized with Alexa, so web and mobile clients (such as ympd or MALP) show what's currently playing.
+2. **Radio stream mode (`STREAM_MODE=radio`)**: Streams the continuous live HTTP/Icecast stream provided by MPD's `httpd` output.
 
-## config values
+## Configuration Values
 
-- RADIO_URL: The external HTTPS url that can be used by alexa to access the stream. It will redirect to an internal URL. e.g `https://domain.tld/radio`
-- MPD_RADIO_URL: the internal url that must be reachable from the Alexa (can be in the internal network) e.g. `http://192.168.0.10:8000/alexa`
-- MPD_HOST: the mpd host e.g. `192.168.0.10`
-- MPD_PORT: The mpd port e.g. `6600`
+| Variable | Description | Default |
+|---|---|---|
+| `STREAM_MODE` | Playback mode: `tracks` (individual files) or `radio` (continuous MPD stream) | `tracks` if `MUSIC_DIR` is set, else `radio` |
+| `MUSIC_DIR` | Path to the local music directory mounted in the container (e.g. `/music`) | None |
+| `AUTH_TOKEN` | Secret token to secure `/song` (and `/radio`) endpoints. Alexa URLs will include `?token=...`. | None (public) |
+| `BASE_URL` | Public HTTPS URL Alexa uses to access audio streams (e.g. `https://jukebox.example.com`) | Derived from `RADIO_URL` |
+| `MPD_HOST` | Hostname or IP of the MPD server | `localhost` |
+| `MPD_PORT` | Port of the MPD server | `6600` |
+| `RADIO_URL` | External HTTPS URL for the radio stream endpoint (legacy radio mode) | None |
+| `MPD_RADIO_URL` | Internal URL pointing to MPD's HTTP stream output (legacy radio mode) | None |
+| `LISTEN_HOST` | Host to bind the internal web server to | `0.0.0.0` |
+| `LISTEN_PORT` | Port the internal web server listens on | `8844` (or `$PORT`) |
 
-## How to configure?
+## How to Configure
 
-Use as custom skill with custom endpoint. Point it at `https://domain.tld/alexa`
+1. Deploy the container and make the service accessible over HTTPS (e.g. via Traefik or Caddy).
+2. Configure a custom Alexa skill in the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask):
+   - **Service Endpoint**: Point HTTPS endpoint to `https://<domain>/alexa`.
+   - **Interfaces**: Enable the **Audio Player** interface.

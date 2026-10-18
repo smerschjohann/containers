@@ -349,6 +349,22 @@ class TestAlexaHandlers(unittest.TestCase):
 
         self.assertEqual(resp.directives[0].audio_item.stream.token, '2')
 
+    def test_next_command_issued(self):
+        self.mock_client.playlistinfo.return_value = [
+            {'id': '1', 'title': 'Song 1'},
+            {'id': '2', 'title': 'Song 2', 'artist': 'Artist', 'file': 'Song2.mp3'}
+        ]
+
+        handler = skill.NextOrPreviousCommandHandler()
+        hi = create_handler_input("PlaybackController.NextCommandIssued", token="1")
+
+        self.assertTrue(handler.can_handle(hi))
+        resp = handler.handle(hi)
+
+        self.assertEqual(resp.directives[0].audio_item.stream.token, '2')
+        self.assertIsNone(resp.should_end_session)
+        self.assertIsNone(resp.output_speech)
+
 
 class TestBottleAudioServing(unittest.TestCase):
     """Tests for the HTTP audio serving route in Bottle."""

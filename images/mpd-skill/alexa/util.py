@@ -13,7 +13,7 @@ from ask_sdk_core.handler_input import HandlerInput
 
 
 
-def play(url, offset, text, card_data, response_builder, token="radio_stream", metadata=None):
+def play(url, offset, text, card_data, response_builder, token="radio_stream", metadata=None, should_end_session=None):
     """Function to play audio.
 
     Using the function to begin playing audio when:
@@ -25,7 +25,7 @@ def play(url, offset, text, card_data, response_builder, token="radio_stream", m
     REPLACE_ALL: Immediately begin playback of the specified stream,
     and replace current and enqueued streams.
     """
-    # type: (str, int, str, Dict, ResponseFactory, str, Optional[Dict]) -> Response
+    # type: (str, int, str, Dict, ResponseFactory, str, Optional[Dict], Optional[bool]) -> Response
     if card_data:
         response_builder.set_card(
             StandardCard(
@@ -61,7 +61,10 @@ def play(url, offset, text, card_data, response_builder, token="radio_stream", m
                 metadata=audio_metadata
             )
         )
-    ).set_should_end_session(True)
+    )
+
+    if should_end_session is not None:
+        response_builder.set_should_end_session(should_end_session)
 
     if text:
         response_builder.speak(text)
@@ -137,7 +140,7 @@ def play_later(url, card_data, response_builder, token=None, expected_previous_t
                 metadata=audio_metadata
             )
         )
-    ).set_should_end_session(True)
+    )
 
     return response_builder.response
 

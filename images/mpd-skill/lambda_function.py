@@ -676,7 +676,8 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input):
         return (is_intent_name("AMAZON.CancelIntent")(handler_input) or
                 is_intent_name("AMAZON.StopIntent")(handler_input) or
-                is_intent_name("AMAZON.PauseIntent")(handler_input))
+                is_intent_name("AMAZON.PauseIntent")(handler_input) or
+                is_intent_name("AMAZON.NavigateHomeIntent")(handler_input))
 
     def handle(self, handler_input):
         logger.info("In CancelOrStopIntentHandler")
@@ -1106,8 +1107,30 @@ def index():
     return webservice_handler.verify_request_and_dispatch(headers, body)
 
 
+from socketserver import ThreadingMixIn
+from wsgiref.simple_server import WSGIServer, make_server
+from bottle import ServerAdapter
+
+
+class ThreadedWSGIServer(ThreadingMixIn, WSGIServer):
+    daemon_threads = True
+    multithread = True
+
+
+class ThreadedWSGIRefServer(ServerAdapter):
+    def run(self, handler):
+        server = make_server(self.host, self.port, handler, server_class=ThreadedWSGIServer)
+        server.serve_forever()
+
+
 LISTEN_HOST = os.getenv("LISTEN_HOST", "0.0.0.0")
 LISTEN_PORT = int(os.getenv("LISTEN_PORT", os.getenv("PORT", "8844")))
 
 if __name__ == '__main__':
-    run(host=LISTEN_HOST, port=LISTEN_PORT)
+    try:
+        import waitress
+        logger.info("Starting multi-threaded Waitress WSGI server on %s:%s (8 threads)...", LISTEN_HOST, LISTEN_PORT)
+        run(host=LISTEN_HOST, port=LISTEN_PORT, server='waitress', threads=8)
+    except ImportError:
+        logger.info("Starting multi-threaded WSGIRefServer on %s:%s...", LISTEN_HOST, LISTEN_PORT)
+        run(host=LISTEN_HOST, port=LISTEN_PORT, server=ThreadedWSGIRefServer)

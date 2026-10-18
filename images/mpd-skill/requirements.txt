@@ -4,3 +4,4 @@ babel
 bottle
 python-mpd2
 requests
+waitress

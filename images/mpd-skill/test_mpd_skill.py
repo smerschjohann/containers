@@ -24,7 +24,7 @@ from ask_sdk_model.interfaces.audioplayer import (
 from ask_sdk_core.handler_input import HandlerInput
 
 
-def create_handler_input(request_type="IntentRequest", intent_name=None, slots=None, token="radio_stream", offset=0, supported_interfaces=True):
+def create_handler_input(request_type="IntentRequest", intent_name=None, slots=None, token="radio_stream", offset=0, supported_interfaces=True, device_id="default-device"):
     """Helper to create a typed HandlerInput for testing."""
     if request_type == "IntentRequest":
         slot_objs = {}
@@ -64,9 +64,9 @@ def create_handler_input(request_type="IntentRequest", intent_name=None, slots=N
     )
 
     if supported_interfaces:
-        device = Device(supported_interfaces=SupportedInterfaces(audio_player=audio_player))
+        device = Device(device_id=device_id, supported_interfaces=SupportedInterfaces(audio_player=audio_player))
     else:
-        device = Device(supported_interfaces=SupportedInterfaces(audio_player=None))
+        device = Device(device_id=device_id, supported_interfaces=SupportedInterfaces(audio_player=None))
 
     context = Context(
         system=MagicMock(device=device),
@@ -551,5 +551,246 @@ class TestBottleRadioRoutes(unittest.TestCase):
             self.assertEqual(skill.response.status_code, 404)
 
 
+class TestHeosClient(unittest.TestCase):
+    """Tests for the heos.py socket communication and CLI commands."""
+
+    import heos
+
+    @patch('socket.socket')
+    def test_send_command(self, mock_socket_cls):
+        mock_sock = MagicMock()
+        mock_socket_cls.return_value.__enter__.return_value = mock_sock
+        mock_sock.recv.return_value = b'{"heos": {"command": "player/get_players", "result": "success"}, "payload": [{"pid": 123, "name": "Denon"}]}\r\n'
+
+        resp = self.heos.send_command("192.168.0.141", "heos://player/get_players")
+        self.assertIsNotNone(resp)
+        self.assertEqual(resp["heos"]["result"], "success")
+        self.assertEqual(resp["payload"][0]["pid"], 123)
+
+    @patch('socket.socket')
+    def test_get_players(self, mock_socket_cls):
+        mock_sock = MagicMock()
+        mock_socket_cls.return_value.__enter__.return_value = mock_sock
+        mock_sock.recv.return_value = b'{"heos": {"command": "player/get_players", "result": "success"}, "payload": [{"pid": 777, "name": "AVR"}]}\r\n'
+
+        players = self.heos.get_players("192.168.0.141")
+        self.assertEqual(len(players), 1)
+        self.assertEqual(players[0]["pid"], 777)
+
+    @patch.object(heos, 'get_players')
+    def test_resolve_player_id(self, mock_get_players):
+        # Provided PID takes precedence
+        self.assertEqual(self.heos.resolve_player_id("192.168.0.141", pid=42), 42)
+
+        # Discovered PID if None
+        mock_get_players.return_value = [{"pid": 999, "name": "Denon"}]
+        self.assertEqual(self.heos.resolve_player_id("192.168.0.141", pid=None), 999)
+
+    @patch.object(heos, 'send_command')
+    def test_play_stream(self, mock_send):
+        mock_send.return_value = {"heos": {"result": "success"}}
+        ok = self.heos.play_stream("192.168.0.141", "http://192.168.0.117:8000/alexa.flac", pid=100)
+        self.assertTrue(ok)
+        mock_send.assert_called_with("192.168.0.141", "heos://browse/play_stream?pid=100&url=http://192.168.0.117:8000/alexa.flac", port=1255, timeout=3.0)
+
+    @patch.object(heos, 'send_command')
+    def test_set_play_state(self, mock_send):
+        mock_send.return_value = {"heos": {"result": "success"}}
+        self.assertTrue(self.heos.stop("192.168.0.141", pid=100))
+        mock_send.assert_called_with("192.168.0.141", "heos://player/set_play_state?pid=100&state=stop", port=1255, timeout=3.0)
+
+        self.assertTrue(self.heos.pause("192.168.0.141", pid=100))
+        self.assertTrue(self.heos.resume("192.168.0.141", pid=100))
+
+
+class TestHeosModeIntegration(unittest.TestCase):
+    """Tests for Alexa Skill behavior in Denon HEOS silence mode."""
+
+    def setUp(self):
+        self.patch_radio_url = patch.object(skill, 'RADIO_URL', 'https://jukebox.example.com/radio.flac')
+        self.patch_auth = patch.object(skill, 'AUTH_TOKEN', 'token123')
+        self.patch_conn = patch.object(skill, 'connection')
+        self.patch_client = patch.object(skill, 'client')
+
+        self.patch_radio_url.start()
+        self.patch_auth.start()
+        self.mock_conn = self.patch_conn.start()
+        self.mock_client = self.patch_client.start()
+        self.mock_conn.return_value.__enter__.return_value = None
+
+        skill.heos_config["enabled"] = True
+        skill.heos_config["host"] = "192.168.0.141"
+        skill.heos_config["pid"] = 705225572
+        skill.heos_config["devices"] = {"echo-living-room"}
+
+    def tearDown(self):
+        self.patch_radio_url.stop()
+        self.patch_auth.stop()
+        self.patch_conn.stop()
+        self.patch_client.stop()
+        skill.heos_config["enabled"] = False
+        skill.heos_config["devices"] = set()
+
+    def test_is_heos_mode_active_device_filter(self):
+        hi_living = create_handler_input("LaunchRequest", device_id="echo-living-room")
+        hi_kitchen = create_handler_input("LaunchRequest", device_id="echo-kitchen")
+
+        self.assertTrue(skill.is_heos_mode_active(hi_living))
+        self.assertFalse(skill.is_heos_mode_active(hi_kitchen))
+
+        # When no devices set, applies to all
+        skill.heos_config["devices"] = set()
+        self.assertTrue(skill.is_heos_mode_active(hi_kitchen))
+
+        # When disabled, applies to none
+        skill.heos_config["enabled"] = False
+        self.assertFalse(skill.is_heos_mode_active(hi_living))
+
+    def test_get_silence_url(self):
+        url = skill.get_silence_url()
+        self.assertIn("https://jukebox.example.com/silence.mp3", url)
+        self.assertIn("token=token123", url)
+
+    @patch('heos.play_stream')
+    def test_launch_handler_heos_mode_streams_silence(self, mock_heos_play):
+        mock_heos_play.return_value = True
+        self.mock_client.playlistinfo.return_value = [{'id': '1', 'title': 'Great Song'}]
+        self.mock_client.currentsong.return_value = {'id': '1', 'title': 'Great Song', 'artist': 'Band'}
+
+        handler = skill.LaunchRequestOrPlayAudioHandler()
+        hi = create_handler_input("LaunchRequest", device_id="echo-living-room")
+
+        resp = handler.handle(hi)
+
+        mock_heos_play.assert_called_once()
+        self.mock_client.play.assert_called_once()
+        # Alexa gets silence stream with heos_silence token
+        self.assertEqual(resp.directives[0].audio_item.stream.token, "heos_silence")
+        self.assertIn("silence.mp3", resp.directives[0].audio_item.stream.url)
+
+    @patch('heos.play_stream')
+    def test_device_filter_living_room_vs_kitchen(self, mock_heos_play):
+        mock_heos_play.return_value = True
+        self.mock_client.playlistinfo.return_value = [{'id': '1'}]
+        handler = skill.LaunchRequestOrPlayAudioHandler()
+
+        # Kitchen Echo -> normal radio stream
+        hi_kitchen = create_handler_input("LaunchRequest", device_id="echo-kitchen")
+        resp_kitchen = handler.handle(hi_kitchen)
+        self.assertEqual(resp_kitchen.directives[0].audio_item.stream.token, "radio_stream")
+        self.assertIn("radio.flac", resp_kitchen.directives[0].audio_item.stream.url)
+
+        # Living room Echo -> HEOS silence stream
+        hi_living = create_handler_input("LaunchRequest", device_id="echo-living-room")
+        resp_living = handler.handle(hi_living)
+        self.assertEqual(resp_living.directives[0].audio_item.stream.token, "heos_silence")
+        self.assertIn("silence.mp3", resp_living.directives[0].audio_item.stream.url)
+
+    @patch('heos.stop')
+    def test_stop_handler_heos_mode(self, mock_heos_stop):
+        mock_heos_stop.return_value = True
+        handler = skill.CancelOrStopIntentHandler()
+        hi = create_handler_input("IntentRequest", "AMAZON.StopIntent", device_id="echo-living-room")
+
+        resp = handler.handle(hi)
+        mock_heos_stop.assert_called_once()
+        self.mock_client.stop.assert_called_once()
+
+    def test_playback_nearly_finished_enqueues_silence(self):
+        handler = skill.PlaybackNearlyFinishedHandler()
+        hi = create_handler_input("AudioPlayer.PlaybackNearlyFinished", token="heos_silence", device_id="echo-living-room")
+
+        resp = handler.handle(hi)
+        self.assertIsNotNone(resp.directives)
+        self.assertEqual(resp.directives[0].audio_item.stream.token, "heos_silence")
+
+
+class TestBottleHeosAndSilenceRoutes(unittest.TestCase):
+    """Tests for the HTTP /silence and /api/heos/... routes."""
+
+    def test_silence_route(self):
+        with patch.object(skill, 'AUTH_TOKEN', 'token123'):
+            # Unauthorized
+            skill.request.bind({'QUERY_STRING': ''})
+            resp = skill.serve_silence()
+            self.assertEqual(skill.response.status_code, 403)
+
+            # Authorized
+            skill.request.bind({'QUERY_STRING': 'token=token123'})
+            resp = skill.serve_silence()
+            self.assertEqual(skill.response.content_type, 'audio/mpeg')
+            self.assertGreater(len(resp), 1000)
+
+    def test_heos_api_routes(self):
+        import json
+
+        # 1. Test unauthorized access when AUTH_TOKEN is set
+        with patch.object(skill, 'AUTH_TOKEN', 'secret_token'):
+            skill.request.bind({'QUERY_STRING': ''})
+
+            # status 403
+            resp = skill.heos_status()
+            self.assertEqual(skill.response.status_code, 403)
+            self.assertIn("Forbidden", resp)
+
+            # enable 403
+            resp = skill.heos_enable()
+            self.assertEqual(skill.response.status_code, 403)
+
+            # disable 403
+            resp = skill.heos_disable()
+            self.assertEqual(skill.response.status_code, 403)
+
+            # toggle 403
+            resp = skill.heos_toggle()
+            self.assertEqual(skill.response.status_code, 403)
+
+            # device 403
+            skill.request.bind({'QUERY_STRING': 'device_id=dev-echo-1&action=add'})
+            resp = skill.heos_device()
+            self.assertEqual(skill.response.status_code, 403)
+
+        # 2. Test authorized access with query param token
+        with patch.object(skill, 'AUTH_TOKEN', 'secret_token'):
+            skill.heos_config["enabled"] = False
+            skill.heos_config["host"] = "192.168.0.141"
+            skill.request.bind({'QUERY_STRING': 'token=secret_token'})
+            res_json = json.loads(skill.heos_status())
+            self.assertFalse(res_json["enabled"])
+            self.assertEqual(res_json["host"], "192.168.0.141")
+
+            # Enable with token
+            skill.request.bind({'QUERY_STRING': 'token=secret_token&device_id=dev-echo-1'})
+            res_enable = json.loads(skill.heos_enable())
+            self.assertTrue(res_enable["enabled"])
+            self.assertIn("dev-echo-1", res_enable["devices"])
+
+            # Toggle with token
+            skill.request.bind({'QUERY_STRING': 'token=secret_token'})
+            res_toggle = json.loads(skill.heos_toggle())
+            self.assertFalse(res_toggle["enabled"])
+
+            # Disable with token
+            skill.request.bind({'QUERY_STRING': 'token=secret_token'})
+            res_disable = json.loads(skill.heos_disable())
+            self.assertFalse(res_disable["enabled"])
+
+            # Device management with token
+            skill.request.bind({'QUERY_STRING': 'token=secret_token&device_id=dev-echo-2&action=add'})
+            res_dev = json.loads(skill.heos_device())
+            self.assertIn("dev-echo-2", res_dev["devices"])
+
+            skill.request.bind({'QUERY_STRING': 'token=secret_token&device_id=dev-echo-2&action=remove'})
+            res_dev2 = json.loads(skill.heos_device())
+            self.assertNotIn("dev-echo-2", res_dev2["devices"])
+
+        # 3. Test authorized access with X-Auth-Token header
+        with patch.object(skill, 'AUTH_TOKEN', 'secret_token'):
+            skill.request.bind({'HTTP_X_AUTH_TOKEN': 'secret_token', 'QUERY_STRING': ''})
+            res_json = json.loads(skill.heos_status())
+            self.assertEqual(skill.response.status_code, 200)
+
+
 if __name__ == '__main__':
     unittest.main()
+

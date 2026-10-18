@@ -23,6 +23,7 @@ from ask_sdk_model.interfaces.audioplayer import (
 from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler
 
 from alexa import util
+import heos
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ MPD_PORT = int(os.getenv("MPD_PORT", "6600"))
 RADIO_URL = os.getenv("RADIO_URL")
 MPD_RADIO_URL = os.getenv("MPD_RADIO_URL")
 
-# Optional authentication token to secure the /radio endpoint from public access
+# Optional authentication token to secure the /radio and /silence endpoints
 AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 
 # Auto-queueing: automatically append random album or tracks when playlist reaches end
@@ -46,8 +47,28 @@ AUTO_QUEUE_MODE = os.getenv("AUTO_QUEUE_MODE", "album").lower()  # "album" or "t
 
 STREAM_MODE = "radio"
 
-logger.info("Configured MPD Skill (Radio/Stream Mode): mpd=%s:%s, radio_url=%s, auth=%s, auto_queue=%s (%s)",
-            MPD_HOST, MPD_PORT, RADIO_URL, bool(AUTH_TOKEN), AUTO_QUEUE_RANDOM, AUTO_QUEUE_MODE)
+# Denon / HEOS Integration
+HEOS_HOST = os.getenv("HEOS_HOST")
+HEOS_PORT = int(os.getenv("HEOS_PORT", "1255"))
+HEOS_PID = int(os.getenv("HEOS_PID")) if os.getenv("HEOS_PID") else None
+HEOS_STREAM_URL = os.getenv("HEOS_STREAM_URL")
+HEOS_ENABLED = os.getenv("HEOS_ENABLED", "false").lower() in ("true", "1", "yes")
+HEOS_DEVICE_IDS = [d.strip() for d in os.getenv("HEOS_DEVICE_IDS", "").split(",") if d.strip()]
+
+SILENCE_FILE = os.path.join(os.path.dirname(__file__), "silence.mp3")
+
+heos_config = {
+    "enabled": HEOS_ENABLED,
+    "host": HEOS_HOST,
+    "port": HEOS_PORT,
+    "pid": HEOS_PID,
+    "stream_url": HEOS_STREAM_URL,
+    "devices": set(HEOS_DEVICE_IDS)
+}
+
+logger.info("Configured MPD Skill (Radio/Stream Mode): mpd=%s:%s, radio_url=%s, auth=%s, auto_queue=%s (%s), heos_enabled=%s (host=%s)",
+            MPD_HOST, MPD_PORT, RADIO_URL, bool(AUTH_TOKEN), AUTO_QUEUE_RANDOM, AUTO_QUEUE_MODE,
+            heos_config["enabled"], heos_config["host"])
 
 
 @contextmanager
@@ -73,6 +94,71 @@ def get_radio_url():
         sep = '&' if '?' in RADIO_URL else '?'
         return f"{RADIO_URL}{sep}token={quote(AUTH_TOKEN)}"
     return RADIO_URL
+
+
+def get_device_id(handler_input):
+    """Safely extract device ID from request context."""
+    try:
+        return handler_input.request_envelope.context.system.device.device_id
+    except Exception:
+        return None
+
+
+def is_heos_mode_active(handler_input=None):
+    """Check if HEOS AVR mode is enabled and applies to this Alexa device."""
+    if not heos_config.get("enabled"):
+        return False
+    if not heos_config.get("host"):
+        return False
+    target_devices = heos_config.get("devices")
+    if not target_devices:
+        return True
+    if handler_input is None:
+        return True
+    dev_id = get_device_id(handler_input)
+    return bool(dev_id and dev_id in target_devices)
+
+
+def get_silence_url():
+    """Return silence audio URL with token query parameter if AUTH_TOKEN is set."""
+    if RADIO_URL:
+        base = RADIO_URL.split("/radio")[0]
+        silence_url = f"{base}/silence.mp3"
+    else:
+        silence_url = "/silence.mp3"
+    if AUTH_TOKEN and 'token=' not in silence_url:
+        sep = '&' if '?' in silence_url else '?'
+        silence_url = f"{silence_url}{sep}token={quote(AUTH_TOKEN)}"
+    return silence_url
+
+
+def trigger_heos_stream():
+    """Direct Denon HEOS to play the MPD stream."""
+    host = heos_config.get("host")
+    if not host:
+        return False
+    stream_url = heos_config.get("stream_url") or MPD_RADIO_URL or RADIO_URL
+    if not stream_url:
+        logger.error("No stream URL available for HEOS")
+        return False
+    return heos.play_stream(host, stream_url, pid=heos_config.get("pid"), port=heos_config.get("port", 1255))
+
+
+def trigger_heos_stop():
+    """Direct Denon HEOS to stop playback."""
+    host = heos_config.get("host")
+    if host:
+        return heos.stop(host, pid=heos_config.get("pid"), port=heos_config.get("port", 1255))
+    return False
+
+
+def get_playback_url_and_token(handler_input, trigger_stream=True):
+    """Return appropriate audio stream URL and token for the current device and mode."""
+    if is_heos_mode_active(handler_input):
+        if trigger_stream:
+            trigger_heos_stream()
+        return get_silence_url(), "heos_silence"
+    return get_radio_url(), "radio_stream"
 
 
 def add_random_music_to_queue(count=1):
@@ -328,12 +414,13 @@ class LaunchRequestOrPlayAudioHandler(AbstractRequestHandler):
             elif restored_what:
                 speech = f"Spiele {restored_what}"
 
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=speech,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class QueueSongHandler(AbstractRequestHandler):
@@ -401,13 +488,13 @@ class PlaySongHandler(AbstractRequestHandler):
         title = match.get('title') or song_title
         art = match.get('artist', '')
         speech_text = f"Spiele {title}" + (f" von {art}" if art else "")
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=speech_text,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class PlayAlbumHandler(AbstractRequestHandler):
@@ -437,13 +524,13 @@ class PlayAlbumHandler(AbstractRequestHandler):
             client.play()
 
         speech_text = f"Spiele Album {album}" + (f" von {artist}" if artist else "")
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=speech_text,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class PlayArtistHandler(AbstractRequestHandler):
@@ -471,13 +558,13 @@ class PlayArtistHandler(AbstractRequestHandler):
             client.play()
 
         speech_text = f"Spiele Musik von {artist}"
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=speech_text,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class ClearQueueHandler(AbstractRequestHandler):
@@ -487,6 +574,8 @@ class ClearQueueHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         logger.info("In ClearQueueHandler")
+        if is_heos_mode_active(handler_input):
+            trigger_heos_stop()
         with connection():
             client.clear()
             client.stop()
@@ -521,13 +610,13 @@ class QueueStatusHandler(AbstractRequestHandler):
                         msg = f"Die Wiedergabeliste war leer. Spiele {what}: {title}{by}."
                     else:
                         msg = f"Die Wiedergabeliste war leer. Spiele {what}."
-                    url = get_radio_url()
-                    return util.play(url=url,
+                    stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+                    return util.play(url=stream_url,
                                      offset=0,
                                      text=msg,
                                      card_data=None,
                                      response_builder=handler_input.response_builder,
-                                     token="radio_stream")
+                                     token=stream_token)
                 else:
                     msg = "Die Wiedergabeliste ist leer und es konnte keine Musik in der Bibliothek gefunden werden."
         elif song and song.get('title'):
@@ -593,13 +682,13 @@ class NextOrPreviousIntentHandler(AbstractRequestHandler):
                 except Exception:
                     pass
 
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=False)
+        return util.play(url=stream_url,
                          offset=0,
                          text=None,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class NextOrPreviousCommandHandler(AbstractRequestHandler):
@@ -625,13 +714,13 @@ class NextOrPreviousCommandHandler(AbstractRequestHandler):
             except Exception as e:
                 logger.error("error executing next/prev command: %s", e)
 
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=False)
+        return util.play(url=stream_url,
                          offset=0,
                          text=None,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
@@ -644,6 +733,8 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         logger.info("In CancelOrStopIntentHandler")
+        if is_heos_mode_active(handler_input):
+            trigger_heos_stop()
         with connection():
             try:
                 client.stop()
@@ -659,6 +750,8 @@ class PauseCommandHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         logger.info("In PauseCommandHandler")
+        if is_heos_mode_active(handler_input):
+            trigger_heos_stop()
         with connection():
             try:
                 client.pause(1)
@@ -685,13 +778,13 @@ class ResumeIntentHandler(AbstractRequestHandler):
                 client.play()
             except Exception:
                 pass
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=speech,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class StartOverIntentHandler(AbstractRequestHandler):
@@ -706,13 +799,13 @@ class StartOverIntentHandler(AbstractRequestHandler):
                 client.seekcur(0)
             except Exception:
                 pass
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=False)
+        return util.play(url=stream_url,
                          offset=0,
                          text=None,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class PlayCommandHandler(AbstractRequestHandler):
@@ -730,13 +823,13 @@ class PlayCommandHandler(AbstractRequestHandler):
                 client.play()
             except Exception:
                 pass
-        url = get_radio_url()
-        return util.play(url=url,
+        stream_url, stream_token = get_playback_url_and_token(handler_input, trigger_stream=True)
+        return util.play(url=stream_url,
                          offset=0,
                          text=None,
                          card_data=None,
                          response_builder=handler_input.response_builder,
-                         token="radio_stream")
+                         token=stream_token)
 
 
 class PlaybackStartedHandler(AbstractRequestHandler):
@@ -771,7 +864,14 @@ class PlaybackNearlyFinishedHandler(AbstractRequestHandler):
         return is_request_type("AudioPlayer.PlaybackNearlyFinished")(handler_input)
 
     def handle(self, handler_input):
-        # In continuous radio mode, the stream does not end
+        try:
+            token = handler_input.request_envelope.request.token
+        except Exception:
+            token = None
+        if token == "heos_silence":
+            url = get_silence_url()
+            return util.play_later(url=url, card_data=None, response_builder=handler_input.response_builder,
+                                   token="heos_silence", expected_previous_token="heos_silence")
         return handler_input.response_builder.response
 
 
@@ -797,7 +897,9 @@ class ExceptionEncounteredHandler(AbstractRequestHandler):
 
 class RequestLogger(AbstractRequestInterceptor):
     def process(self, handler_input):
-        logger.debug("Alexa Request: %s", handler_input.request_envelope.request)
+        req = handler_input.request_envelope.request
+        dev_id = get_device_id(handler_input)
+        logger.info("Alexa Request: type=%s, device_id=%s", getattr(req, "object_type", req), dev_id)
 
 
 class ResponseLogger(AbstractResponseInterceptor):
@@ -887,6 +989,109 @@ def radio():
         return redirect(MPD_RADIO_URL, 302)
     response.status = 404
     return "MPD_RADIO_URL not configured"
+
+
+@route('/silence', method=["GET", "HEAD"])
+@route('/silence.mp3', method=["GET", "HEAD"])
+def serve_silence():
+    """Serve silence audio file for Alexa AudioPlayer when HEOS mode is active."""
+    if not check_auth():
+        response.status = 403
+        return "Forbidden: Invalid or missing authentication token"
+    response.content_type = 'audio/mpeg'
+    if os.path.exists(SILENCE_FILE):
+        with open(SILENCE_FILE, 'rb') as f:
+            return f.read()
+    response.status = 404
+    return "Silence file not found"
+
+
+def _get_heos_status_json():
+    return json.dumps({
+        "enabled": heos_config["enabled"],
+        "host": heos_config["host"],
+        "port": heos_config["port"],
+        "pid": heos_config["pid"],
+        "stream_url": heos_config["stream_url"] or MPD_RADIO_URL or RADIO_URL,
+        "devices": list(heos_config["devices"])
+    }, indent=2)
+
+
+@route('/api/heos/status', method=["GET"])
+def heos_status():
+    if not check_auth():
+        response.status = 403
+        response.content_type = 'application/json'
+        return json.dumps({"error": "Forbidden: Invalid or missing authentication token"})
+    response.status = 200
+    response.content_type = 'application/json'
+    return _get_heos_status_json()
+
+
+@route('/api/heos/enable', method=["GET", "POST"])
+def heos_enable():
+    if not check_auth():
+        response.status = 403
+        response.content_type = 'application/json'
+        return json.dumps({"error": "Forbidden: Invalid or missing authentication token"})
+    heos_config["enabled"] = True
+    device_id = request.query.get("device_id")
+    if device_id:
+        heos_config["devices"].add(device_id)
+    host = request.query.get("host")
+    if host:
+        heos_config["host"] = host
+    logger.info("HEOS mode enabled: host=%s, devices=%s", heos_config["host"], heos_config["devices"])
+    response.status = 200
+    response.content_type = 'application/json'
+    return _get_heos_status_json()
+
+
+@route('/api/heos/disable', method=["GET", "POST"])
+def heos_disable():
+    if not check_auth():
+        response.status = 403
+        response.content_type = 'application/json'
+        return json.dumps({"error": "Forbidden: Invalid or missing authentication token"})
+    heos_config["enabled"] = False
+    logger.info("HEOS mode disabled")
+    response.status = 200
+    response.content_type = 'application/json'
+    return _get_heos_status_json()
+
+
+@route('/api/heos/toggle', method=["GET", "POST"])
+def heos_toggle():
+    if not check_auth():
+        response.status = 403
+        response.content_type = 'application/json'
+        return json.dumps({"error": "Forbidden: Invalid or missing authentication token"})
+    heos_config["enabled"] = not heos_config["enabled"]
+    logger.info("HEOS mode toggled to: %s", heos_config["enabled"])
+    response.status = 200
+    response.content_type = 'application/json'
+    return _get_heos_status_json()
+
+
+@route('/api/heos/device', method=["GET", "POST"])
+def heos_device():
+    if not check_auth():
+        response.status = 403
+        response.content_type = 'application/json'
+        return json.dumps({"error": "Forbidden: Invalid or missing authentication token"})
+    device_id = request.query.get("device_id")
+    action = request.query.get("action", "add")
+    if not device_id:
+        response.status = 400
+        response.content_type = 'application/json'
+        return json.dumps({"error": "device_id parameter required"})
+    if action == "add":
+        heos_config["devices"].add(device_id)
+    elif action == "remove":
+        heos_config["devices"].discard(device_id)
+    response.status = 200
+    response.content_type = 'application/json'
+    return _get_heos_status_json()
 
 
 @route('/alexa', method=['POST'])

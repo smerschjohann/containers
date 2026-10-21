@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Re-apply the OSC 52 browser-clipboard fix to a prebuilt code-server install.
+#
+# Patches <root>/lib/vscode/out/vs/code/browser/workbench/workbench.js so that
+# non-PRIMARY OSC 52 writes use the default clipboard instead of the in-memory
+# "clipboard" type. Idempotent: safe to run from a container init script.
+#
+# Usage:
+#   sudo code-server-osc52-patch                 # autodetect install
+#   sudo code-server-osc52-patch -r /usr/lib/code-server
+#        code-server-osc52-patch -f /path/workbench.js --check
+#
+# Exit codes: 0 patched or already patched; 1 error.
+# With --check: 0 already patched, 1 not patched / error.
+set -u
+
+ROOT="${CODE_SERVER_ROOT:-}"
+FILE=""
+CHECK=0
+QUIET=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -r|--root)  ROOT="${2:-}"; shift 2 ;;
+    -f|--file)  FILE="${2:-}"; shift 2 ;;
+    -c|--check) CHECK=1; shift ;;
+    -q|--quiet) QUIET=1; shift ;;
+    -h|--help)
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) echo "osc52: unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+log() { [ "$QUIET" -eq 1 ] || echo "osc52: $*"; }
+die() { echo "osc52: $*" >&2; exit 1; }
+
+if [ -z "$FILE" ]; then
+  if [ -z "$ROOT" ]; then
+    for candidate in \
+      /usr/lib/code-server \
+      /usr/local/lib/code-server \
+      /opt/code-server \
+      "$HOME/.local/lib"/code-server-*; do
+      if [ -f "$candidate/lib/vscode/out/vs/code/browser/workbench/workbench.js" ]; then
+        ROOT="$candidate"
+        break
+      fi
+    done
+  fi
+  [ -n "$ROOT" ] || die "could not locate code-server; use --root or --file"
+  FILE="$ROOT/lib/vscode/out/vs/code/browser/workbench/workbench.js"
+fi
+
+[ -f "$FILE" ] || die "not found: $FILE"
+
+if [ -n "$ROOT" ] && [ -x "$ROOT/lib/node" ]; then
+  NODE="$ROOT/lib/node"
+elif command -v node >/dev/null 2>&1; then
+  NODE="$(command -v node)"
+else
+  die "no node runtime found"
+fi
+
+"$NODE" - "$FILE" "$CHECK" "$QUIET" <<'NODE'
+const fs = require("fs");
+const file = process.argv[2];
+const checkOnly = process.argv[3] === "1";
+const quiet = process.argv[4] === "1";
+const log = (m) => { if (!quiet) console.log(`osc52: ${m}`); };
+
+const src = fs.readFileSync(file, "utf8");
+
+// Matches the compiled clipboard provider:
+//   async writeText(D,M){return g.writeText(M,D==="p"?"selection":"clipboard")}
+// Variable names are minifier-dependent and intentionally not hard-coded.
+const re = /(async writeText\(([A-Za-z_$][\w$]*),([A-Za-z_$][\w$]*)\)\{return ([A-Za-z_$][\w$]*)\.writeText\(\3,\2==="p"\?"selection":)(?:"clipboard"|void 0|undefined)\)(\})/g;
+const matches = [...src.matchAll(re)];
+
+if (matches.length !== 1) {
+  console.error(`osc52: expected exactly one OSC 52 writeText call, found ${matches.length} in ${file}`);
+  process.exit(1);
+}
+
+const m = matches[0];
+const patched = m[0].includes(":void 0)") || m[0].includes(":undefined)");
+
+if (patched) {
+  log(`already patched: ${file}`);
+  process.exit(0);
+}
+
+if (checkOnly) {
+  log(`not patched: ${file}`);
+  process.exit(1);
+}
+
+const backup = `${file}.orig-osc52`;
+if (!fs.existsSync(backup)) {
+  fs.copyFileSync(file, backup, fs.constants.COPYFILE_EXCL);
+  log(`backup written: ${backup}`);
+}
+
+const out = src.slice(0, m.index) + m[1] + "void 0)" + m[5] + src.slice(m.index + m[0].length);
+const mode = fs.statSync(file).mode & 0o777;
+const tmp = `${file}.osc52-tmp`;
+fs.writeFileSync(tmp, out, { mode });
+fs.renameSync(tmp, file);
+
+log(`patched: ${file}`);
+NODE

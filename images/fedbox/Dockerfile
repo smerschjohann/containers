@@ -126,6 +126,15 @@ RUN curl -LO https://github.com/coder/code-server/releases/download/${CODE_SERVE
   	rm -rf /var/cache/yum
 RUN chmod a+x /usr/bin/*
 
+# OSC 52 clipboard fix (workbench.js) - applied at build time so code-server
+# copies to the browser/system clipboard instead of the in-memory one
+COPY --chown=0:0 code-server-osc52-patch /tmp/code-server-osc52-patch
+RUN chmod a+x /tmp/code-server-osc52-patch && \
+    /tmp/code-server-osc52-patch --quiet && \
+    /tmp/code-server-osc52-patch --quiet --check && \
+    rm -f /tmp/code-server-osc52-patch \
+          /usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench/workbench.js.orig-osc52
+
 USER coder
 EXPOSE 8080/tcp
 

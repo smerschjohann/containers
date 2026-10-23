@@ -1,7 +1,7 @@
-FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:b4d866f80a4d1ffebb0f0e238f37677424c1d890ed7627a5a7a5623e11a87f56 AS fedtop
+FROM ghcr.io/linuxserver/webtop:fedora-kde@sha256:60911690628473474c3951b50b53c369c33f42c163bc25eacd4b963b0eac7029 AS fedtop
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.142.0
+ARG VSCODE_VERSION=1.143.1
 
 RUN dnf install -y dnf-plugins-core; \
     dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo; \

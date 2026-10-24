@@ -72,3 +72,14 @@ package-chart chart="fedbox-codeserver":
     mkdir -p dist
     helm package charts/{{chart}} -d dist/
 
+
+build-listenbrainz-mpd:
+    buildah bud \
+        -f $PWD/images/listenbrainz-mpd/Dockerfile \
+        --format docker \
+        -t listenbrainz-mpd:$TAG \
+        --layers \
+        $PWD/images/listenbrainz-mpd
+
+push-listenbrainz-mpd:
+    buildah push listenbrainz-mpd:$TAG docker://ghcr.io/smerschjohann/containers/listenbrainz-mpd:latest

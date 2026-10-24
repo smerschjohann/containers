@@ -22,6 +22,11 @@
         "target": "mpd"
     },
     {
+        "name": "listenbrainz-mpd",
+        "dir": "./images/listenbrainz-mpd",
+        "target": "app"
+    },
+    {
         "name": "fedbox",
         "dir": "./images/fedbox",
         "target": "fedbox"

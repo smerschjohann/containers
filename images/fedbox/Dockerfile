@@ -95,7 +95,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.143.1
+ARG VSCODE_VERSION=1.144.0
 
 USER root
 

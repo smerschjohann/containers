@@ -2,7 +2,7 @@ apiVersion: v2
 name: fedbox-codeserver
 description: run code-server on kubernetes on cloud hypervisor or without
 type: application
-version: 0.1.16
+version: 0.1.17
 appVersion: "latest"
 home: https://github.com/smerschjohann/containers
 sources:

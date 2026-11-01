@@ -22,7 +22,8 @@ RUN mkdir -p /venv /opt/workspace-internal && \
     /venv/main/bin/pip install --no-cache-dir wheel huggingface_hub[cli] ipykernel ipywidgets
 
 RUN source /venv/main/bin/activate && \
-    pip install "${TORCH_WHEEL_URL}" "${TORCHVISION_WHEEL_URL}" "${TORCHAUDIO_WHEEL_URL}"
+    pip install "${TORCH_WHEEL_URL}" "${TORCHVISION_WHEEL_URL}" "${TORCHAUDIO_WHEEL_URL}" && \
+    find /venv/main -name List_inl.h -exec sed -i -E 's/(typename )?decltype\(impl_->list\)::difference_type/c10::detail::ListImpl::list_type::difference_type/g' {} +
 
 # Create a constraints file to protect PyTorch versions
 RUN echo "torch @ ${TORCH_WHEEL_URL}" > /opt/workspace-internal/constraints.txt && \
@@ -164,7 +165,8 @@ RUN mkdir -p /venv /opt/workspace-internal && \
     /venv/aitoolkit/bin/pip install --no-cache-dir --upgrade pip wheel
 
 RUN source /venv/aitoolkit/bin/activate && \
-    pip install --no-cache-dir "${TORCH_WHEEL_URL}" "${TORCHVISION_WHEEL_URL}" "${TORCHAUDIO_WHEEL_URL}"
+    pip install --no-cache-dir "${TORCH_WHEEL_URL}" "${TORCHVISION_WHEEL_URL}" "${TORCHAUDIO_WHEEL_URL}" && \
+    find /venv/aitoolkit -name List_inl.h -exec sed -i -E 's/(typename )?decltype\(impl_->list\)::difference_type/c10::detail::ListImpl::list_type::difference_type/g' {} +
 
 RUN source /venv/aitoolkit/bin/activate && \
     git clone https://github.com/ostris/ai-toolkit.git /opt/workspace-internal/ai-toolkit && \

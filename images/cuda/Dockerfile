@@ -126,7 +126,7 @@ RUN groupadd -g 1000 user && \
 COPY --from=builder --chown=1000:1000 /venv /venv
 COPY --from=builder --chown=1000:1000 /opt/workspace-internal /opt/workspace-internal
 COPY --from=go-build /gencert /usr/local/bin/gencert
-COPY --from=caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5 /usr/bin/caddy /usr/bin/caddy
+COPY --from=caddy:2.11.8-alpine@sha256:3db3a09e418f86a8fce8de4bc0026fccd2b4cd925aef00cc7d843d9fdc75e442 /usr/bin/caddy /usr/bin/caddy
 
 ARG SAGEATTENTION_VERSION=v2
 ENV SAGEATTENTION_VERSION=${SAGEATTENTION_VERSION}

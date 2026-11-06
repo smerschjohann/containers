@@ -4,7 +4,7 @@ ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
 # STAGE 2: Builder (Compilation and Venv Setup)
-FROM docker.io/nvidia/cuda:13.4.3-devel-rockylinux10@sha256:e9dfafc5dfa2cfa662e9bcb74093af12e4923c4caf7694a0ccf06dcdede8b26a AS builder
+FROM docker.io/nvidia/cuda:13.5.0-devel-rockylinux10@sha256:059e8224a6baab69b2d9f0b34958c2ed7b5c236eaa41babc7e0403d50d62c780 AS builder
 
 ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl
@@ -62,7 +62,7 @@ RUN source /venv/main/bin/activate && \
     pip install --no-cache-dir -r ComfyUI-Workflow-Models-Downloader/requirements.txt
 
 # STAGE 3: Final Runtime
-FROM docker.io/nvidia/cuda:13.4.3-base-rockylinux10@sha256:99db20567132fad57759e83d788a8d741a5da91ef84bfe5f56e05b3635357f7b AS cuda
+FROM docker.io/nvidia/cuda:13.5.0-base-rockylinux10@sha256:0457e549285eedaae07335e02646ce8b2c45f9682b0a54191e0b857a2ccc89be AS cuda
 
 LABEL org.opencontainers.image.source="https://github.com/smerschjohann/containers/"
 LABEL org.opencontainers.image.description="Image for AI/ML development with CUDA 13.2.0 (Optimized)"
@@ -76,7 +76,7 @@ ARG CODE_SERVER_VERSION=v4.145.0
 ARG S6_OVERLAY_VERSION=v3.2.0.2
 
 # renovate: datasource=github-releases depName=rclone/rclone
-ARG RCLONE_VERSION=v1.75.2
+ARG RCLONE_VERSION=v1.76.0
 
 RUN dnf install epel-release -y && crb enable && \
     dnf install -y --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm && \
@@ -148,7 +148,7 @@ ADD --chown=user:user Caddyfile.tmpl landing.html /etc/caddy/
 ENTRYPOINT ["/init"]
 
 # STAGE 4: AI Toolkit Builder (separate venv for additive image)
-FROM docker.io/nvidia/cuda:13.4.3-devel-rockylinux10@sha256:e9dfafc5dfa2cfa662e9bcb74093af12e4923c4caf7694a0ccf06dcdede8b26a AS aitoolkit-builder
+FROM docker.io/nvidia/cuda:13.5.0-devel-rockylinux10@sha256:059e8224a6baab69b2d9f0b34958c2ed7b5c236eaa41babc7e0403d50d62c780 AS aitoolkit-builder
 
 ARG TORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0 12.0"
 ARG TORCH_WHEEL_URL=https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl

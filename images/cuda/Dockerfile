@@ -1,5 +1,5 @@
 # STAGE 1: Go Tools for Certificate Generation
-FROM docker.io/library/golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS go-build
+FROM docker.io/library/golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS go-build
 ADD main.go /main.go
 RUN go build -ldflags="-s -w" -o /gencert /main.go
 
@@ -126,7 +126,7 @@ RUN groupadd -g 1000 user && \
 COPY --from=builder --chown=1000:1000 /venv /venv
 COPY --from=builder --chown=1000:1000 /opt/workspace-internal /opt/workspace-internal
 COPY --from=go-build /gencert /usr/local/bin/gencert
-COPY --from=caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9 /usr/bin/caddy /usr/bin/caddy
+COPY --from=caddy:2.11.9-alpine@sha256:0bbb055bda6793c999bde78b1b5ce3e89f829fb031af2cf50056ea1246559fee /usr/bin/caddy /usr/bin/caddy
 
 ARG SAGEATTENTION_VERSION=v2
 ENV SAGEATTENTION_VERSION=${SAGEATTENTION_VERSION}

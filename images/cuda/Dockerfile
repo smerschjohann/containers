@@ -70,7 +70,7 @@ LABEL org.opencontainers.image.title="CUDA 13.2.0 Optimized"
 LABEL maintainer="Simon Merschjohann"
 
 # renovate: datasource=github-releases depName=coder/code-server
-ARG CODE_SERVER_VERSION=v4.145.0
+ARG CODE_SERVER_VERSION=v4.145.2
 
 # renovate: datasource=github-releases depName=just-containers/s6-overlay
 ARG S6_OVERLAY_VERSION=v3.2.0.2

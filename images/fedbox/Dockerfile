@@ -26,7 +26,7 @@ ARG HELM_VERSION=v4.3.1
 ARG HELMFILE_VERSION=v1.8.3
 
 # renovate: datasource=github-releases depName=helmfile/vals
-ARG VALS_VERSION=v0.50.0
+ARG VALS_VERSION=v0.51.0
 
 # Install Go from official tarball instead of distro package
 ARG GO_VERSION=1.27.0

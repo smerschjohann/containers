@@ -46,6 +46,11 @@ AUTH_TOKEN = os.getenv("AUTH_TOKEN")
 AUTO_QUEUE_RANDOM = os.getenv("AUTO_QUEUE_RANDOM", "true").lower() in ("true", "1", "yes")
 AUTO_QUEUE_MODE = os.getenv("AUTO_QUEUE_MODE", "album").lower()  # "album" or "tracks"
 
+# Stream keeper: keeps the MPD queue non-empty so the httpd output never
+# falls silent (see "STREAM KEEPER" section below)
+STREAM_KEEPER_INTERVAL = float(os.getenv("STREAM_KEEPER_INTERVAL", "15"))
+STREAM_KEEPER_ENABLED = os.getenv("STREAM_KEEPER", "true").lower() in ("true", "1", "yes")
+
 STREAM_MODE = "radio"
 
 # Denon / HEOS Integration
@@ -180,7 +185,10 @@ def get_playback_url_and_token(handler_input, trigger_stream=True):
         if trigger_stream:
             trigger_heos_stream()
         return get_silence_url(), "heos_silence"
-    return get_radio_url(), "radio_stream"
+    # Unique token per stream start: a repeated Play directive with an unchanged
+    # token/URL is treated as the already running item by Alexa, so a stream that
+    # died would never be restarted (a different audio item is needed to reset it).
+    return get_radio_url(), f"radio_stream_{int(time.time() * 1000)}"
 
 
 def add_random_music_to_queue(count=1):
@@ -300,6 +308,90 @@ def restore_last_music_or_album():
             logger.error("Failed to add fallback random album: %s", e)
 
     return False, ""
+
+
+# ########## STREAM KEEPER ########################
+#
+# The MPD httpd output only sends audio while something is playing. With
+# "always_on yes" it puts the output into pause mode at the end of the queue
+# instead of closing it, and HttpdOutput::Pause() emits a single 1020 byte
+# block of silence - after that, no more data is sent. A connected Alexa
+# AudioPlayer stream therefore stalls silently and never recovers.
+#
+# The keeper keeps the queue from ever running dry: MPD loops the queue
+# instead of stopping at its end, and random music is appended when the last
+# track of the queue starts (so repeat does not just replay the same album).
+# It deliberately does NOT resume playback - an intentional stop, pause or
+# clear must stay untouched.
+
+_keeper_state = {"appended_key": None}
+
+
+def configure_stream_defaults():
+    """Make MPD loop the queue instead of stopping at its end."""
+    with connection():
+        try:
+            client.repeat(1)
+            client.single(0)
+            logger.info("Stream keeper: repeat enabled, single disabled")
+            return True
+        except Exception as e:
+            logger.warning("Stream keeper: cannot configure repeat: %s", e)
+            return False
+
+
+def keep_stream_alive():
+    """Run one stream keeper tick.
+
+    Returns one of: "disabled", "error", "idle", "ok", "appended",
+    "append-failed".
+    """
+    if not STREAM_KEEPER_ENABLED:
+        return "disabled"
+
+    with connection():
+        try:
+            status = client.status()
+        except Exception as e:
+            logger.warning("Stream keeper: cannot read MPD status: %s", e)
+            return "error"
+
+    # MPD forgets the option on restart, so re-apply it whenever it is gone.
+    if status.get("repeat") != "1" or status.get("single", "0") != "0":
+        configure_stream_defaults()
+
+    playlist_length = int(status.get("playlistlength", 0) or 0)
+    if playlist_length == 0 or status.get("state") != "play":
+        # Empty queue, stopped or paused: this is the user's decision.
+        return "idle"
+
+    if not AUTO_QUEUE_RANDOM:
+        return "ok"
+
+    song = int(status.get("song", 0) or 0)
+    if song < playlist_length - 1:
+        return "ok"
+
+    # Last track of the queue has started: append music before repeat kicks
+    # in, once per queue position.
+    key = (song, playlist_length)
+    if _keeper_state["appended_key"] == key:
+        return "ok"
+    _keeper_state["appended_key"] = key
+    logger.info("Stream keeper: last track of queue started, appending music")
+    return "appended" if add_random_music_to_queue() else "append-failed"
+
+
+def run_stream_keeper(interval=None):
+    """Background loop around keep_stream_alive()."""
+    interval = STREAM_KEEPER_INTERVAL if interval is None else interval
+    logger.info("Stream keeper started (interval=%ss, auto_queue=%s)", interval, AUTO_QUEUE_RANDOM)
+    while True:
+        try:
+            keep_stream_alive()
+        except Exception as e:
+            logger.error("Stream keeper tick failed: %s", e)
+        time.sleep(interval)
 
 
 def get_slot_value(handler_input, slot_name):
@@ -1145,6 +1237,7 @@ LISTEN_HOST = os.getenv("LISTEN_HOST", "0.0.0.0")
 LISTEN_PORT = int(os.getenv("LISTEN_PORT", os.getenv("PORT", "8844")))
 
 if __name__ == '__main__':
+    threading.Thread(target=run_stream_keeper, name="stream-keeper", daemon=True).start()
     try:
         import waitress
         logger.info("Starting multi-threaded Waitress WSGI server on %s:%s (8 threads)...", LISTEN_HOST, LISTEN_PORT)

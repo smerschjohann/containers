@@ -18,6 +18,8 @@ This is an Alexa Skill that integrates with an MPD (Music Player Daemon) server 
   - `ClearQueueIntent`: Clear the MPD queue and stop playback.
   - `QueueStatusIntent`: Check current playing track and queue size.
   - Standard playback commands: Next, Previous, Pause, Resume, Stop, Start Over.
+- **Stream keeper**: MPD's `httpd` output only sends audio while something is playing; with `always_on yes` it pauses at the end of the queue and emits a single 1020 byte block of silence, which stalls a connected Alexa stream for good. The keeper enables `repeat`, appends random music when the last track of the queue starts, and never touches an intentional stop, pause or clear.
+- **Unique stream token**: every playback starts with a fresh `radio_stream_<epoch ms>` token, so Alexa treats it as a new audio item instead of the stalled one it still has on record.
 - **Auto-Queueing & Recovery**: Automatically restores the last modified playlist or newest album when starting with an empty queue, and appends random music when the playlist ends.
 - **Multi-threaded Webserver**: Runs with `waitress` (8 threads) to ensure responsive request handling even during audio streaming.
 - **Token Authentication**: Secure the streaming endpoints (`/radio`, `/radio.flac`, `/radio.mp3`, `/silence.mp3`) and HEOS management API (`/api/heos/...`) with an optional `AUTH_TOKEN`.
@@ -33,6 +35,8 @@ This is an Alexa Skill that integrates with an MPD (Music Player Daemon) server 
 | `AUTH_TOKEN` | Optional secret token to secure `/radio`, `/silence`, and `/api/heos/*` endpoints. | None (public) |
 | `AUTO_QUEUE_RANDOM` | Automatically append random music when playlist ends | `true` |
 | `AUTO_QUEUE_MODE` | Type of random music to queue: `album` or `tracks` | `album` |
+| `STREAM_KEEPER` | Keep the MPD queue non-empty so the stream never falls silent | `true` |
+| `STREAM_KEEPER_INTERVAL` | Stream keeper poll interval in seconds | `15` |
 | `HEOS_HOST` | IP or hostname of Denon/Marantz AVR (e.g. `192.168.0.141`) | None |
 | `HEOS_PORT` | HEOS CLI control port | `1255` |
 | `HEOS_PID` | Specific HEOS player ID (auto-discovered if omitted) | None |
@@ -63,7 +67,7 @@ You can register this device ID via the API or `HEOS_DEVICE_IDS`.
 
 ## Setup & Deployment
 
-1. Deploy MPD with an `httpd` output (e.g., `encoder "flac"` on port 8000).
+1. Deploy MPD with an `httpd` output (e.g., `encoder "flac"` on port 8000). Use `always_on "yes"` and `mixer_type "software"`, and leave `max_clients` at `0` (unlimited) - a small limit silently drops new listeners once stale audio connections occupy all slots.
 2. Deploy `mpd-skill` with `RADIO_URL`, `MPD_RADIO_URL`, and optionally `HEOS_HOST`.
 3. In the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask):
    - **Service Endpoint**: Point HTTPS endpoint to `https://<domain>/alexa`.

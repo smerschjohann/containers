@@ -7,6 +7,7 @@ auto-queueing, and Alexa Intent / AudioPlayer / PlaybackController handlers.
 
 import os
 import sys
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +23,9 @@ from ask_sdk_model.interfaces.audioplayer import (
     AudioPlayerState, PlayerActivity, PlayDirective, PlayBehavior, StopDirective
 )
 from ask_sdk_core.handler_input import HandlerInput
+
+# Radio stream tokens are unique per playback start: radio_stream_<epoch ms>
+RADIO_TOKEN_RE = r'^radio_stream_\d+$'
 
 
 def create_handler_input(request_type="IntentRequest", intent_name=None, slots=None, token="radio_stream", offset=0, supported_interfaces=True, device_id="default-device"):
@@ -107,6 +111,25 @@ class TestMpdSkillConfigAndAuth(unittest.TestCase):
     def test_get_radio_url_none(self):
         with patch.object(skill, 'RADIO_URL', None):
             self.assertIsNone(skill.get_radio_url())
+
+    def test_playback_token_is_unique_per_playback(self):
+        """Alexa ignores a Play directive that reuses the running stream's token."""
+        with patch.object(skill, 'RADIO_URL', 'https://jukebox.example.com/radio'), \
+             patch.object(skill, 'is_heos_mode_active', return_value=False):
+            _, token_one = skill.get_playback_url_and_token(MagicMock())
+            time.sleep(0.01)
+            _, token_two = skill.get_playback_url_and_token(MagicMock())
+            self.assertRegex(token_one, RADIO_TOKEN_RE)
+            self.assertRegex(token_two, RADIO_TOKEN_RE)
+            self.assertNotEqual(token_one, token_two)
+
+    def test_heos_token_is_stable(self):
+        """PlaybackNearlyFinished matches on it to loop the silence stream."""
+        with patch.object(skill, 'is_heos_mode_active', return_value=True), \
+             patch.object(skill, 'trigger_heos_stream', return_value=True):
+            for _ in range(2):
+                _, token = skill.get_playback_url_and_token(MagicMock())
+                self.assertEqual(token, "heos_silence")
 
     def test_check_auth_query_token(self):
         with patch.object(skill, 'AUTH_TOKEN', 'mytoken'):
@@ -274,6 +297,108 @@ class TestMpdHelpersAndQueue(unittest.TestCase):
             mock_c.play.assert_called_once()
 
 
+class TestStreamKeeper(unittest.TestCase):
+    """Tests for the keeper that prevents the MPD queue from running dry."""
+
+    def setUp(self):
+        self.mock_c = MagicMock()
+        self.patch_client = patch.object(skill, 'client', self.mock_c)
+        self.patch_conn = patch.object(skill, 'connection')
+        self.patch_conn.start().return_value.__enter__.return_value = None
+        self.patch_client.start()
+        self.patch_enabled = patch.object(skill, 'STREAM_KEEPER_ENABLED', True)
+        self.patch_auto_queue = patch.object(skill, 'AUTO_QUEUE_RANDOM', True)
+        self.patch_enabled.start()
+        self.patch_auto_queue.start()
+        skill._keeper_state.update({"appended_key": None})
+
+    def tearDown(self):
+        self.patch_enabled.stop()
+        self.patch_auto_queue.stop()
+        self.patch_conn.stop()
+        self.patch_client.stop()
+        skill._keeper_state.update({"appended_key": None})
+
+    def test_configure_stream_defaults_enables_repeat(self):
+        self.assertTrue(skill.configure_stream_defaults())
+        self.mock_c.repeat.assert_called_once_with(1)
+        self.mock_c.single.assert_called_once_with(0)
+
+    def test_configure_stream_defaults_survives_mpd_error(self):
+        self.mock_c.repeat.side_effect = RuntimeError("no mixer")
+        self.assertFalse(skill.configure_stream_defaults())
+
+    def test_reapplies_repeat_when_mpd_forgot_it(self):
+        """MPD does not persist "repeat", e.g. after a container restart."""
+        self.mock_c.status.return_value = {"state": "play", "song": "0", "playlistlength": "3"}
+        with patch.object(skill, 'add_random_music_to_queue'):
+            skill.keep_stream_alive()
+        self.mock_c.repeat.assert_called_once_with(1)
+
+    def test_leaves_existing_repeat_setting_alone(self):
+        self.mock_c.status.return_value = {"state": "play", "song": "0", "playlistlength": "3",
+                                           "repeat": "1", "single": "0"}
+        skill.keep_stream_alive()
+        self.mock_c.repeat.assert_not_called()
+
+    def test_mid_queue_does_nothing(self):
+        self.mock_c.status.return_value = {"state": "play", "song": "1", "playlistlength": "5", "repeat": "1", "single": "0"}
+        with patch.object(skill, 'add_random_music_to_queue') as mock_add:
+            self.assertEqual(skill.keep_stream_alive(), "ok")
+            mock_add.assert_not_called()
+        self.mock_c.repeat.assert_not_called()
+
+    def test_last_track_appends_music(self):
+        self.mock_c.status.return_value = {"state": "play", "song": "4", "playlistlength": "5", "repeat": "1", "single": "0"}
+        with patch.object(skill, 'add_random_music_to_queue', return_value=True) as mock_add:
+            self.assertEqual(skill.keep_stream_alive(), "appended")
+            mock_add.assert_called_once()
+
+    def test_appends_only_once_per_queue_position(self):
+        self.mock_c.status.return_value = {"state": "play", "song": "4", "playlistlength": "5", "repeat": "1", "single": "0"}
+        with patch.object(skill, 'add_random_music_to_queue', return_value=True) as mock_add:
+            skill.keep_stream_alive()
+            self.assertEqual(skill.keep_stream_alive(), "ok")
+            mock_add.assert_called_once()
+
+    def test_append_failure_is_reported(self):
+        self.mock_c.status.return_value = {"state": "play", "song": "0", "playlistlength": "1", "repeat": "1", "single": "0"}
+        with patch.object(skill, 'add_random_music_to_queue', return_value=False):
+            self.assertEqual(skill.keep_stream_alive(), "append-failed")
+
+    def test_does_not_resume_paused_or_stopped_playback(self):
+        for state in ("pause", "stop"):
+            skill._keeper_state["appended_key"] = None
+            self.mock_c.status.return_value = {"state": state, "song": "1", "playlistlength": "5", "repeat": "1", "single": "0"}
+            with patch.object(skill, 'add_random_music_to_queue') as mock_add:
+                self.assertEqual(skill.keep_stream_alive(), "idle")
+                mock_add.assert_not_called()
+        self.mock_c.play.assert_not_called()
+        self.mock_c.pause.assert_not_called()
+
+    def test_does_not_restore_empty_queue(self):
+        self.mock_c.status.return_value = {"state": "stop", "playlistlength": "0", "repeat": "1"}
+        with patch.object(skill, 'restore_last_music_or_album') as mock_restore:
+            self.assertEqual(skill.keep_stream_alive(), "idle")
+            mock_restore.assert_not_called()
+
+    def test_disabled_keeper_is_a_noop(self):
+        with patch.object(skill, 'STREAM_KEEPER_ENABLED', False):
+            self.assertEqual(skill.keep_stream_alive(), "disabled")
+            self.mock_c.status.assert_not_called()
+
+    def test_mpd_error_is_reported(self):
+        self.mock_c.status.side_effect = RuntimeError("connection lost")
+        self.assertEqual(skill.keep_stream_alive(), "error")
+
+    def test_no_auto_queue_does_not_append(self):
+        with patch.object(skill, 'AUTO_QUEUE_RANDOM', False):
+            self.mock_c.status.return_value = {"state": "play", "song": "4", "playlistlength": "5", "repeat": "1", "single": "0"}
+            with patch.object(skill, 'add_random_music_to_queue') as mock_add:
+                self.assertEqual(skill.keep_stream_alive(), "ok")
+                mock_add.assert_not_called()
+
+
 class TestAlexaHandlers(unittest.TestCase):
     """Tests for Alexa skill intent and controller handlers in Radio Stream mode."""
 
@@ -317,7 +442,7 @@ class TestAlexaHandlers(unittest.TestCase):
         self.assertIsNotNone(resp.directives)
         self.assertIsInstance(resp.directives[0], PlayDirective)
         self.assertEqual(resp.directives[0].play_behavior, PlayBehavior.REPLACE_ALL)
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
         self.assertIn('token=token123', resp.directives[0].audio_item.stream.url)
         self.assertIn('First Song', resp.output_speech.ssml)
 
@@ -333,7 +458,7 @@ class TestAlexaHandlers(unittest.TestCase):
             resp = handler.handle(hi)
             mock_restore.assert_called_once()
             self.mock_client.play.assert_called_once()
-            self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+            self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
             self.assertIn('Album Discovery', resp.output_speech.ssml)
 
     def test_queue_song_intent(self):
@@ -363,7 +488,7 @@ class TestAlexaHandlers(unittest.TestCase):
         self.mock_client.addid.assert_called_with('PF/Animals.flac')
         self.mock_client.playid.assert_called_with('99')
         self.assertEqual(len(resp.directives), 1)
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
         self.assertIn("Spiele Animals", resp.output_speech.ssml)
 
     def test_play_album_intent(self):
@@ -381,7 +506,7 @@ class TestAlexaHandlers(unittest.TestCase):
         self.mock_client.clear.assert_called_once()
         self.assertEqual(self.mock_client.add.call_count, 2)
         self.mock_client.play.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
         self.assertIn("Dark Side", resp.output_speech.ssml)
 
     def test_play_artist_intent(self):
@@ -399,7 +524,7 @@ class TestAlexaHandlers(unittest.TestCase):
         self.mock_client.clear.assert_called_once()
         self.assertEqual(self.mock_client.add.call_count, 2)
         self.mock_client.play.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
         self.assertIn("Radiohead", resp.output_speech.ssml)
 
     def test_clear_queue_intent(self):
@@ -444,7 +569,7 @@ class TestAlexaHandlers(unittest.TestCase):
 
             mock_restore.assert_called_once()
             self.mock_client.play.assert_called_once()
-            self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+            self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
             self.assertIn("Die Wiedergabeliste war leer", resp.output_speech.ssml)
             self.assertIn("Album Greatest Hits", resp.output_speech.ssml)
 
@@ -458,7 +583,7 @@ class TestAlexaHandlers(unittest.TestCase):
         resp = handler.handle(hi)
 
         self.mock_client.next.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_next_intent_auto_queues_at_end(self):
         self.mock_client.status.return_value = {'song': '4', 'playlistlength': '5'}
@@ -471,7 +596,7 @@ class TestAlexaHandlers(unittest.TestCase):
             resp = handler.handle(hi)
             mock_add_random.assert_called_once()
             self.mock_client.next.assert_called_once()
-            self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+            self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_previous_intent(self):
         handler = skill.NextOrPreviousIntentHandler()
@@ -481,7 +606,7 @@ class TestAlexaHandlers(unittest.TestCase):
         resp = handler.handle(hi)
 
         self.mock_client.previous.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_next_command_issued(self):
         self.mock_client.status.return_value = {'song': '1', 'playlistlength': '5'}
@@ -493,7 +618,7 @@ class TestAlexaHandlers(unittest.TestCase):
         resp = handler.handle(hi)
 
         self.mock_client.next.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_cancel_or_stop_intent(self):
         for intent_name in ["AMAZON.StopIntent", "AMAZON.CancelIntent", "AMAZON.PauseIntent", "AMAZON.NavigateHomeIntent"]:
@@ -525,7 +650,7 @@ class TestAlexaHandlers(unittest.TestCase):
         resp = handler.handle(hi)
 
         self.mock_client.play.assert_called_once()
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_start_over_intent(self):
         handler = skill.StartOverIntentHandler()
@@ -535,7 +660,7 @@ class TestAlexaHandlers(unittest.TestCase):
         resp = handler.handle(hi)
 
         self.mock_client.seekcur.assert_called_with(0)
-        self.assertEqual(resp.directives[0].audio_item.stream.token, 'radio_stream')
+        self.assertRegex(resp.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
 
     def test_playback_nearly_finished(self):
         handler = skill.PlaybackNearlyFinishedHandler()
@@ -705,7 +830,7 @@ class TestHeosModeIntegration(unittest.TestCase):
         # Kitchen Echo -> normal radio stream
         hi_kitchen = create_handler_input("LaunchRequest", device_id="echo-kitchen")
         resp_kitchen = handler.handle(hi_kitchen)
-        self.assertEqual(resp_kitchen.directives[0].audio_item.stream.token, "radio_stream")
+        self.assertRegex(resp_kitchen.directives[0].audio_item.stream.token, RADIO_TOKEN_RE)
         self.assertIn("radio.flac", resp_kitchen.directives[0].audio_item.stream.url)
 
         # Living room Echo -> HEOS silence stream

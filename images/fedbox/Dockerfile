@@ -20,13 +20,13 @@ ENV HELM_PLUGINS=/opt/helm-plugins
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v4.3.1
+ARG HELM_VERSION=v4.3.2
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.8.3
+ARG HELMFILE_VERSION=v1.8.4
 
 # renovate: datasource=github-releases depName=helmfile/vals
-ARG VALS_VERSION=v0.51.0
+ARG VALS_VERSION=v0.51.1
 
 # Install Go from official tarball instead of distro package
 ARG GO_VERSION=1.27.0

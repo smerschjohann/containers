@@ -4,4 +4,3 @@ FROM docker.io/library/traefik:v3.7.19@sha256:a6c0194dda77bcb804824580f36fa7edc5
 RUN apk add --no-cache libcap && \
     setcap 'cap_net_bind_service=+ep' /usr/local/bin/traefik && \
     apk del libcap
-

@@ -23,7 +23,7 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 ARG HELM_VERSION=v4.3.2
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.8.4
+ARG HELMFILE_VERSION=v1.8.6
 
 # renovate: datasource=github-releases depName=helmfile/vals
 ARG VALS_VERSION=v0.51.1
@@ -32,7 +32,7 @@ ARG VALS_VERSION=v0.51.1
 ARG GO_VERSION=1.27.0
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBERNETES_VERSION=v1.37.2
+ARG KUBERNETES_VERSION=v1.37.3
 
 # renovate: datasource=github-releases depName=gokcehan/lf
 ARG LF_VERSION=r41
@@ -95,7 +95,7 @@ FROM fedbox as fedbox-vscode
 ARG TARGETARCH
 
 # renovate: datasource=github-releases depName=microsoft/vscode
-ARG VSCODE_VERSION=1.147.0
+ARG VSCODE_VERSION=1.148.0
 
 USER root
 
